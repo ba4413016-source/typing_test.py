@@ -9,203 +9,112 @@ HTML_PAGE = r"""<!doctype html>
 <html lang="ar" dir="rtl" data-theme="Dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Typing Master Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0b0d14; --panel:rgba(20,24,35,.85); --surface:rgba(255,255,255,.05);
+  --bg:#0b0d14; --panel:#141823; --surface:rgba(255,255,255,.06);
   --text:#f1f5f9; --muted:#94a3b8; --border:rgba(255,255,255,.1);
   --accent:#8b5cf6; --accent2:#06b6d4; --success:#10b981; --danger:#ef4444;
   --grad: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-  --shadow: 0 20px 60px rgba(0,0,0,.4);
 }
-html[data-theme="Light"]{--bg:#f0f4f8;--panel:rgba(255,255,255,.9);--surface:rgba(0,0,0,.04);--text:#0f172a;--muted:#64748b;--border:rgba(0,0,0,.1);--shadow:0 10px 40px rgba(0,0,0,.1)}
-html[data-theme="Midnight"]{--bg:#030712;--panel:rgba(10,15,30,.9);--accent:#3b82f6;--accent2:#8b5cf6;--grad:linear-gradient(135deg,#3b82f6,#8b5cf6)}
-html[data-theme="Ocean"]{--bg:#041c2c;--panel:rgba(8,40,60,.88);--accent:#06b6d4;--accent2:#10b981;--grad:linear-gradient(135deg,#06b6d4,#10b981)}
-html[data-theme="Sunset"]{--bg:#2a1017;--panel:rgba(50,20,30,.88);--accent:#f97316;--accent2:#ec4899;--grad:linear-gradient(135deg,#f97316,#ec4899)}
-html[data-theme="Forest"]{--bg:#0a1f14;--panel:rgba(15,40,25,.88);--accent:#10b981;--accent2:#84cc16;--grad:linear-gradient(135deg,#10b981,#84cc16)}
-html[data-theme="Cyberpunk"]{--bg:#1a0b2e;--panel:rgba(30,15,55,.9);--accent:#ec4899;--accent2:#f59e0b;--grad:linear-gradient(135deg,#ec4899,#f59e0b)}
+html[data-theme="Light"]{--bg:#f0f4f8;--panel:#ffffff;--surface:rgba(0,0,0,.04);--text:#0f172a;--muted:#64748b;--border:rgba(0,0,0,.1);}
+html[data-theme="Midnight"]{--bg:#030712;--panel:#0a0f1e;--accent:#3b82f6;--accent2:#8b5cf6;--grad:linear-gradient(135deg,#3b82f6,#8b5cf6)}
+html[data-theme="Ocean"]{--bg:#041c2c;--panel:#082838;--accent:#06b6d4;--accent2:#10b981;--grad:linear-gradient(135deg,#06b6d4,#10b981)}
+html[data-theme="Sunset"]{--bg:#2a1017;--panel:#321420;--accent:#f97316;--accent2:#ec4899;--grad:linear-gradient(135deg,#f97316,#ec4899)}
+html[data-theme="Forest"]{--bg:#0a1f14;--panel:#0f2819;--accent:#10b981;--accent2:#84cc16;--grad:linear-gradient(135deg,#10b981,#84cc16)}
+html[data-theme="Cyberpunk"]{--bg:#1a0b2e;--panel:#1e0f37;--accent:#ec4899;--accent2:#f59e0b;--grad:linear-gradient(135deg,#ec4899,#f59e0b)}
 
 *{box-sizing:border-box;margin:0;padding:0}
-body{min-height:100vh;background:radial-gradient(ellipse at top, var(--surface), transparent 50%), var(--bg);color:var(--text);font:13px 'Inter','IBM Plex Sans Arabic',sans-serif;display:flex;justify-content:center;align-items:center;padding:12px;transition:background .3s,color .3s}
+body{height:100dvh;background:var(--bg);color:var(--text);font:13px 'Inter','IBM Plex Sans Arabic',sans-serif;display:flex;justify-content:center;overflow:hidden;}
 html[lang="ar"] body,html[lang="ar"] button,html[lang="ar"] input,html[lang="ar"] textarea{font-family:'IBM Plex Sans Arabic',sans-serif}
 button{cursor:pointer;font:inherit;border:none;background:none;color:inherit}
 input,textarea,select{font:inherit;outline:none}
 svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-/* Panel */
-.glass-panel{width:min(100%,440px);height:min(760px,calc(100vh - 24px));min-height:600px;border:1px solid var(--border);border-radius:20px;background:var(--panel);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative}
+/* Full Screen App */
+.app-container{width:100%;height:100dvh;display:flex;flex-direction:column;position:relative;max-width:100%;background:var(--bg);}
+@media(min-width:600px){.app-container{max-width:480px;box-shadow:0 0 40px rgba(0,0,0,.5)}}
 
-/* Header */
-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(0,0,0,.1)}
+header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;background:var(--panel);border-bottom:1px solid var(--border);position:relative;z-index:10}
 .brand{font-weight:800;font-size:15px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .header-user{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:var(--surface);border-radius:20px;font-size:11px;font-weight:600}
 
-/* Main */
-main{flex:1;overflow:auto;padding:14px;scrollbar-width:thin;scrollbar-color:var(--muted) transparent}
-main::-webkit-scrollbar{width:5px}main::-webkit-scrollbar-thumb{background:var(--muted);border-radius:3px}
+main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;background:var(--bg);}
+.views-wrapper{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
 
 /* Nav */
-nav{display:flex;justify-content:space-around;border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));background:rgba(0,0,0,.15)}
+nav{display:flex;justify-content:space-around;background:var(--panel);border-top:1px solid var(--border);padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
 nav button{display:grid;gap:4px;justify-items:center;font-size:10px;color:var(--muted);padding:6px 10px;border-radius:12px;transition:all .2s;position:relative}
 nav button.active{color:var(--text)}
 nav button.active::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:16px;height:3px;background:var(--grad);border-radius:3px}
 
-/* Buttons */
-.btn-primary{background:var(--grad);color:#fff;border-radius:12px;padding:11px 16px;font-weight:700;font-size:12px;transition:transform .15s,box-shadow .2s;box-shadow:0 4px 15px rgba(139,92,246,.3)}
-.btn-primary:active{transform:scale(.96)}
-.btn-secondary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-weight:600;font-size:12px;transition:background .15s}
-.btn-secondary:active{background:rgba(255,255,255,.1)}
-.btn-danger{background:var(--danger);color:#fff;border-radius:12px;padding:10px 14px;font-weight:600;font-size:12px}
+/* Bot Full Screen */
+#bot-view{display:flex;flex-direction:column;height:100%;width:100%;}
+.chatlog{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth;}
+.chatlog::-webkit-scrollbar{width:4px}.chatlog::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.chat-input-area{display:flex;gap:8px;padding:12px 16px;background:var(--panel);border-top:1px solid var(--border);padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+.chat-input-area input{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:10px 16px;font-size:13px;transition:border-color .2s}
+.chat-input-area input:focus{border-color:var(--accent)}
+.send-btn{width:40px;height:40px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;flex-shrink:0;}
 
-/* Inputs */
-.input-field{width:100%;background:var(--surface);color:var(--text);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;font-size:13px;transition:border-color .2s,box-shadow .2s}
-.input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.15)}
-label{display:block;margin:12px 0 6px;color:var(--muted);font-size:11px;font-weight:600}
-
-/* Card */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin:8px 0;transition:transform .2s,box-shadow .2s}
-.card:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.15)}
-.row{display:flex;gap:10px;align-items:center}
-.row>*{flex:1}
-.stack{display:grid;gap:8px}
-.center{text-align:center}
-.small,.muted{font-size:11px;color:var(--muted)}
-.hidden{display:none!important}
-
-/* Avatar */
-.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#fff;font-weight:800;overflow:hidden;flex:none;font-size:14px}
-.avatar img{width:100%;height:100%;object-fit:cover}
-
-/* Badge */
-.badge{display:inline-flex;vertical-align:middle;margin-inline-start:4px}
-.badge svg{width:14px;height:14px}
-.badge.vip svg{fill:#06b6d4;stroke:#06b6d4;filter:drop-shadow(0 0 4px rgba(6,182,212,.6))}
-.badge.admin svg{fill:#f59e0b;stroke:#f59e0b;filter:drop-shadow(0 0 4px rgba(245,158,11,.6))}
-
-/* Tabs */
-.tabs{display:flex;gap:6px;margin:14px 0;background:var(--surface);padding:4px;border-radius:14px;border:1px solid var(--border)}
-.tabs button{flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:600;color:var(--muted);transition:all .2s}
-.tabs button.active{background:var(--grad);color:#fff;box-shadow:0 3px 12px rgba(139,92,246,.3)}
-
-/* Chat */
-.chatlog{height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:10px 6px;scroll-behavior:smooth}
-.chatlog::-webkit-scrollbar{width:3px}.chatlog::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
-.bubble-wrap{display:flex;gap:8px;align-items:flex-end;max-width:90%}
-.bubble-wrap.me{margin-inline-start:auto;flex-direction:row-reverse}
-.bubble-avatar{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0}
+/* Chat Bubbles */
+.bubble-wrap{display:flex;gap:8px;align-items:flex-end;max-width:85%;animation:bubbleIn .3s ease-out}
+.bubble-wrap.me{margin-inline-start:auto;flex-direction:row-reverse;}
+.bubble-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;flex-shrink:0}
 .bubble-wrap.bot .bubble-avatar{background:var(--grad);color:#fff}
 .bubble-wrap.me .bubble-avatar{background:var(--surface);border:1px solid var(--border)}
-.bubble{padding:10px 14px;border-radius:16px;line-height:1.6;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap;animation:bubbleIn .25s ease-out}
-@keyframes bubbleIn{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.bubble{padding:10px 14px;border-radius:18px;line-height:1.6;font-size:13px;overflow-wrap:anywhere;white-space:pre-wrap}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(10px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
 .bubble-wrap.bot .bubble{background:var(--surface);border:1px solid var(--border);border-bottom-inline-start-radius:4px}
 .bubble-wrap.me .bubble{background:var(--grad);color:#fff;border-bottom-inline-end-radius:4px}
 .bubble.typing{display:flex;gap:3px;padding:12px 16px}
 .typing-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:dotBounce 1.4s infinite}
 .typing-dot:nth-child(2){animation-delay:.2s}.typing-dot:nth-child(3){animation-delay:.4s}
 @keyframes dotBounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
-.bubble-time{font-size:9px;color:var(--muted);margin-top:3px;text-align:center;opacity:.7}
 
-/* Chat Input */
-.chat-input-area{display:flex;gap:8px;padding:12px 4px 4px}
-.chat-input-area input{flex:1;background:var(--surface);border:1.5px solid var(--border);color:var(--text);border-radius:16px;padding:12px 16px;font-size:13px;transition:border-color .2s}
-.chat-input-area input:focus{border-color:var(--accent)}
-.send-btn{width:44px;height:44px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;flex-shrink:0;box-shadow:0 4px 15px rgba(139,92,246,.3);transition:transform .15s}
-.send-btn:active{transform:scale(.9)}
+/* Typing Area overlay */
+#typingArea{background:var(--panel);padding:16px;border-top:1px solid var(--border);display:none;}
+#typingArea.active{display:block;}
 
-/* Typing Area */
-.typing-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin:12px 0;animation:bubbleIn .3s}
-.typing-target{font-size:15px;line-height:2.2;user-select:none;margin-bottom:12px;font-weight:500}
-.typing-target span.correct{color:var(--success)}
-.typing-target span.wrong{color:var(--danger);background:rgba(239,68,68,.15);border-radius:3px}
-.typing-target span.current{border-bottom:2px solid var(--accent);animation:blink 1s infinite}
-@keyframes blink{50%{border-bottom-color:transparent}}
-.progress-bar{height:6px;background:var(--surface);border-radius:99px;overflow:hidden;margin-bottom:12px}
-.progress-fill{height:100%;background:var(--grad);width:0;transition:width .2s;border-radius:99px}
-.live-stats{display:flex;justify-content:space-around;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
-.stat-item{text-align:center}
-.stat-value{font-size:18px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-
-/* Leaderboard */
-.rank-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;transition:transform .2s}
-.rank-item:hover{transform:translateX(4px)}
-.rank-num{font-weight:800;font-size:14px;color:var(--muted);width:24px}
-.rank-item.top-1 .rank-num{color:#f59e0b;font-size:18px}
-.rank-item.top-2 .rank-num{color:#94a3b8;font-size:16px}
-.rank-item.top-3 .rank-num{color:#b45309;font-size:16px}
-
-/* Toast */
-#toast-container{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{padding:12px 20px;background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:12px;font-size:12px;font-weight:600;box-shadow:var(--shadow);animation:toastIn .3s;display:flex;gap:8px;align-items:center;min-width:200px}
-.toast.success{border-color:var(--success)}.toast.error{border-color:var(--danger)}.toast.info{border-color:var(--accent)}
-@keyframes toastIn{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
-
-/* Modal */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);display:grid;place-items:center;padding:16px;z-index:100;animation:fadeIn .2s}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{width:min(100%,400px);max-height:90vh;overflow:auto;background:var(--panel);backdrop-filter:blur(24px);border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:var(--shadow);animation:modalIn .3s cubic-bezier(.34,1.56,.64,1)}
-@keyframes modalIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
-.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.modal-head h3{font-size:16px;font-weight:800}
-.modal-head button{font-size:24px;color:var(--muted);line-height:1}
-
-/* List */
-.list-item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px}
-.person{display:flex;gap:10px;align-items:center;cursor:pointer;min-width:0;flex:1}
-.person-info{min-width:0}
-.person-name{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.person-handle{font-size:10px;color:var(--muted)}
-
-/* Social Links */
-.social{display:inline-flex;align-items:center;gap:5px;text-decoration:none;margin:4px 4px 4px 0;padding:6px 12px;background:var(--surface);border-radius:8px;color:var(--text);font-size:11px;font-weight:600;border:1px solid var(--border);transition:all .2s}
-.social:hover{transform:translateY(-1px)}
-.social.instagram{color:#ec67a8;border-color:#ec67a844}
-.social.snapchat{color:#f4dd42;border-color:#f4dd4244}
-
-/* VIP */
-.vip-card{background:linear-gradient(135deg,rgba(139,92,246,.15),rgba(6,182,212,.15));border:1.5px solid var(--accent);border-radius:16px;padding:16px;margin-bottom:12px}
-.vip-plan{padding:14px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;display:flex;justify-content:space-between;align-items:center}
-.vip-plan:hover{border-color:var(--accent);transform:translateY(-2px)}
-.vip-plan.featured{border-color:var(--accent);position:relative}
-
-/* Spinner */
-.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:24px auto}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* Search */
-.search-bar{position:relative;margin-bottom:12px}
-.search-bar input{width:100%;background:var(--surface);border:1.5px solid var(--border);color:var(--text);border-radius:14px;padding:12px 16px;font-size:13px}
-.search-bar input:focus{border-color:var(--accent)}
-
-hr{border:0;border-top:1px solid var(--border);margin:14px 0}
-
-/* Welcome screen */
-.welcome-container{padding:40px 20px;text-align:center;animation:fadeIn .5s}
-.welcome-logo{width:80px;height:80px;border-radius:24px;background:var(--grad);margin:0 auto 20px;display:grid;place-items:center;box-shadow:0 10px 40px rgba(139,92,246,.4)}
-.welcome-logo svg{width:40px;height:40px;stroke:#fff;stroke-width:2}
-.welcome-title{font-size:26px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
-.welcome-subtitle{color:var(--muted);font-size:13px;margin-bottom:32px}
+/* UI Elements */
+.btn-primary{background:var(--grad);color:#fff;border-radius:12px;padding:11px 16px;font-weight:700;font-size:12px;}
+.btn-secondary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-weight:600;font-size:12px;}
+.btn-danger{background:var(--danger);color:#fff;border-radius:12px;padding:10px 14px;font-weight:600;font-size:12px;}
+.input-field{width:100%;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:13px;}
+label{display:block;margin:12px 0 6px;color:var(--muted);font-size:11px;font-weight:600;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin:8px 16px;}
+.list-item{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#fff;font-weight:800;overflow:hidden;flex:none;font-size:14px}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.small,.muted{font-size:11px;color:var(--muted)}
+.center{text-align:center}
+.tabs{display:flex;gap:6px;margin:14px 16px;background:var(--surface);padding:4px;border-radius:14px;border:1px solid var(--border)}
+.tabs button{flex:1;padding:9px;border-radius:10px;font-size:12px;font-weight:600;color:var(--muted);}
+.tabs button.active{background:var(--grad);color:#fff;}
+.hidden{display:none!important}
+.badge.vip svg{fill:#06b6d4;stroke:#06b6d4;width:14px;height:14px}
+.badge.admin svg{fill:#f59e0b;stroke:#f59e0b;width:14px;height:14px}
 </style>
 </head>
 <body>
 
-<div id="toast-container"></div>
-
-<div class="glass-panel">
-<header>
-  <div class="brand">Typing Master Pro</div>
-  <div class="header-user" id="headerUser"></div>
-</header>
-<main id="app"></main>
-<nav id="nav" class="hidden">
-  <button data-page="bot" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="3"/><path d="M12 8V4m-4 4a4 4 0 0 1 8 0"/><circle cx="8.5" cy="14" r="1.2" fill="currentColor"/><circle cx="15.5" cy="14" r="1.2" fill="currentColor"/></svg><span data-i="practice">تدريب</span></button>
-  <button data-page="leaderboard"><svg viewBox="0 0 24 24"><path d="M8 21h8m-4-4v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4m9-6h3v2a4 4 0 0 1-4 4"/></svg><span data-i="leaderboard">المتصدرون</span></button>
-  <button data-page="community"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-9a3 3 0 1 0 0-6m4 15v-2a6 6 0 0 0-4-5.7"/></svg><span data-i="community">المجتمع</span></button>
-  <button data-page="settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-3l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.5-2.6 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.5-2.6 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h3l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.5 2.6-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg><span data-i="settings">الإعدادات</span></button>
-</nav>
+<div class="app-container">
+  <header>
+    <div class="brand">Typing Master Pro</div>
+    <div class="header-user" id="headerUser"></div>
+  </header>
+  <main id="app">
+    <!-- Content renders here -->
+  </main>
+  <nav id="nav" class="hidden">
+    <button data-page="bot" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="3"/><path d="M12 8V4m-4 4a4 4 0 0 1 8 0"/><circle cx="8.5" cy="14" r="1.2" fill="currentColor"/><circle cx="15.5" cy="14" r="1.2" fill="currentColor"/></svg><span data-i="practice">تدريب</span></button>
+    <button data-page="leaderboard"><svg viewBox="0 0 24 24"><path d="M8 21h8m-4-4v4M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4v2a4 4 0 0 0 4 4m9-6h3v2a4 4 0 0 1-4 4"/></svg><span data-i="leaderboard">المتصدرون</span></button>
+    <button data-page="community"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m2-9a3 3 0 1 0 0-6m4 15v-2a6 6 0 0 0-4-5.7"/></svg><span data-i="community">المجتمع</span></button>
+    <button data-page="settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1 1.4 1.1-1.5 2.6-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-3l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.5-2.6 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.5-2.6 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h3l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.5 2.6-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg><span data-i="settings">الإعدادات</span></button>
+  </nav>
 </div>
 <div id="modalRoot"></div>
 
@@ -215,9 +124,10 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const get=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
 const set=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
+// Dictionary Fix: Added missing keys
 const dict={
-ar:{practice:"تدريب",leaderboard:"المتصدرون",community:"المجتمع",settings:"الإعدادات",login:"دخول",register:"إنشاء حساب",welcome:"اختبر سرعتك، حسّن دقتك، وتنافس مع الأصدقاء",username:"اسم المستخدم",password:"كلمة المرور",send:"إرسال",save:"حفظ",cancel:"إلغاء",bio:"نبذة",nickname:"الاسم الظاهر",search:"ابحث عن مستخدم...",vip:"ترقية VIP",support:"الدعم الفني",logout:"تسجيل الخروج",score:"النقطة",noUsers:"لا يوجد مستخدمون بعد",typeHere:"اكتب هنا...",profile:"الملف الشخصي",edit:"تعديل الملف",monthly:"شهري",yearly:"سنوي",lifetime:"مدى الحياة",pay:"ادفع",admin:"لوحة الأدمن",theme:"الثيم",language:"اللغة",friends:"إضافة صديق",message:"مراسلة",upgrade:"ترقية الآن",wpm:"كلمة/د",accuracy:"دقة",tests:"اختبارات",best:"أفضل سرعة",retry:"حاول مرة أخرى",newText:"نص جديد",perfect:"ممتاز!",great:"رائع!",good:"جيد!",keepGoing:"استمر!",online:"متصل",offline:"غير متصل"},
-en:{practice:"Practice",leaderboard:"Leaderboard",community:"Community",settings:"Settings",login:"Login",register:"Register",welcome:"Test your speed, improve accuracy, compete with friends",username:"Username",password:"Password",send:"Send",save:"Save",cancel:"Cancel",bio:"Bio",nickname:"Nickname",search:"Search users...",vip:"Upgrade VIP",support:"Support",logout:"Log out",score:"Points",noUsers:"No users yet",typeHere:"Type here...",profile:"Profile",edit:"Edit profile",monthly:"Monthly",yearly:"Yearly",lifetime:"Lifetime",pay:"Pay",admin:"Admin panel",theme:"Theme",language:"Language",friends:"Add friend",message:"Message",upgrade:"Upgrade now",wpm:"WPM",accuracy:"Accuracy",tests:"Tests",best:"Best Speed",retry:"Try Again",newText:"New Text",perfect:"Perfect!",great:"Great!",good:"Good!",keepGoing:"Keep going!",online:"Online",offline:"Offline"}
+ar:{practice:"تدريب",leaderboard:"المتصدرون",community:"المجتمع",settings:"الإعدادات",login:"دخول",register:"إنشاء حساب",welcome:"اختبر سرعتك، حسّن دقتك، وتنافس مع الأصدقاء",username:"اسم المستخدم",password:"كلمة المرور",send:"إرسال",save:"حفظ",cancel:"إلغاء",bio:"نبذة",nickname:"الاسم الظاهر",search:"ابحث عن مستخدم...",vip:"ترقية VIP",support:"الدعم الفني",logout:"تسجيل الخروج",score:"النقطة",noUsers:"لا يوجد مستخدمون بعد",typeHere:"اكتب هنا...",profile:"الملف الشخصي",edit:"تعديل الملف",monthly:"شهري",yearly:"سنوي",lifetime:"مدى الحياة",pay:"ادفع",admin:"لوحة الأدمن",theme:"الثيم",language:"اللغة",friends:"إضافة صديق",message:"مراسلة",upgrade:"ترقية الآن",wpm:"كلمة/د",accuracy:"دقة",tests:"اختبارات",best:"أفضل سرعة",retry:"حاول مرة أخرى",newText:"نص جديد",perfect:"ممتاز!",great:"رائع!",good:"جيد!",keepGoing:"استمر!",online:"متصل",offline:"غير متصل", difficulty:"اختر الصعوبة: سهل / متوسط / صعب", repeatCount:"أدخل رقماً من 1 إلى 10", prepare:"جاري التجهيز...", getReady:"استعد...", go:"انطلق!", unknownCmd:"لم أفهم الأمر. جرّب: جمل، سوالف، جريدة، أو تكرار."},
+en:{practice:"Practice",leaderboard:"Leaderboard",community:"Community",settings:"Settings",login:"Login",register:"Register",welcome:"Test your speed, improve accuracy, compete with friends",username:"Username",password:"Password",send:"Send",save:"Save",cancel:"Cancel",bio:"Bio",nickname:"Nickname",search:"Search users...",vip:"Upgrade VIP",support:"Support",logout:"Log out",score:"Points",noUsers:"No users yet",typeHere:"Type here...",profile:"Profile",edit:"Edit profile",monthly:"Monthly",yearly:"Yearly",lifetime:"Lifetime",pay:"Pay",admin:"Admin panel",theme:"Theme",language:"Language",friends:"Add friend",message:"Message",upgrade:"Upgrade now",wpm:"WPM",accuracy:"Accuracy",tests:"Tests",best:"Best Speed",retry:"Try Again",newText:"New Text",perfect:"Perfect!",great:"Great!",good:"Good!",keepGoing:"Keep going!",online:"Online",offline:"Offline", difficulty:"Choose difficulty: easy / medium / hard", repeatCount:"Enter a number from 1 to 10", prepare:"Preparing...", getReady:"Get ready...", go:"Go!", unknownCmd:"Unknown command. Try: sentences, stories, newspaper, or repeat."}
 };
 
 let lang=localStorage.getItem("typing_lang")||"ar";
@@ -229,19 +139,13 @@ const nowTime=()=>new Date().toLocaleTimeString(lang==='ar'?'ar-SA':'en-US',{hou
 
 function persist(){set("all_users",users);set("typing_user",current);set("chats",chats);set("support_messages",support)}
 
-function toast(msg,type='info'){
-  const c=$("#toast-container");const el=document.createElement("div");
-  el.className=`toast ${type}`;el.textContent=msg;c.appendChild(el);
-  setTimeout(()=>{el.style.animation='toastIn .3s reverse';setTimeout(()=>el.remove(),300)},2500);
-}
-
-function avatar(u,size=""){
-  return `<div class="avatar ${size}">${u&&u.photo?`<img src="${u.photo}" alt="">`:esc((u&&u.avatar)||"?")}</div>`;
+function avatar(u){
+  return `<div class="avatar">${u&&u.photo?`<img src="${u.photo}" alt="">`:esc((u&&u.avatar)||"?")}</div>`;
 }
 
 function badge(u){
-  if(u?.role==="admin") return `<span class="badge admin" title="Admin"><svg viewBox="0 0 24 24"><path d="m12 2 3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1L12 2Z"/></svg></span>`;
-  if(u?.vip) return `<span class="badge vip" title="VIP"><svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-3Z"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>`;
+  if(u?.role==="admin") return `<span class="badge admin"><svg viewBox="0 0 24 24"><path d="m12 2 3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1L12 2Z"/></svg></span>`;
+  if(u?.vip) return `<span class="badge vip"><svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5-3.4 8.3-8 10-4.6-1.7-8-5-8-10V6l8-3Z"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>`;
   return "";
 }
 
@@ -251,11 +155,17 @@ function render(){
   document.documentElement.dataset.theme=localStorage.getItem("typing_theme")||"Dark";
   $("#nav").classList.toggle("hidden",!current);
   $("#headerUser").innerHTML=current?`${avatar(current)}<span>${esc(current.nickname||current.name)} ${badge(current)}</span>`:"";
+  
   if(!current){renderWelcome();return}
+  
+  // Clear main content before rendering page
+  $("#app").innerHTML = "";
+  
   if(page==="bot")renderBot();
   else if(page==="leaderboard")renderLeaderboard();
   else if(page==="community")renderCommunity();
   else renderSettings();
+  
   $$("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   $$("#nav [data-i]").forEach(x=>x.textContent=t(x.dataset.i));
 }
@@ -263,11 +173,13 @@ function render(){
 /* --- WELCOME --- */
 function renderWelcome(){
   $("#app").innerHTML=`
-  <div class="welcome-container">
-    <div class="welcome-logo"><svg viewBox="0 0 24 24"><path d="M6 9h12M6 15h8M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg></div>
-    <div class="welcome-title">Typing Master Pro</div>
-    <div class="welcome-subtitle">${t("welcome")}</div>
-    <div class="tabs">
+  <div style="padding:40px 20px;text-align:center;display:flex;flex-direction:column;height:100%;justify-content:center">
+    <div style="width:80px;height:80px;border-radius:24px;background:var(--grad);margin:0 auto 20px;display:grid;place-items:center;box-shadow:0 10px 40px rgba(139,92,246,.4)">
+      <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:#fff;stroke-width:2"><path d="M6 9h12M6 15h8M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg>
+    </div>
+    <div style="font-size:26px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px">Typing Master Pro</div>
+    <div class="muted" style="margin-bottom:32px">${t("welcome")}</div>
+    <div class="tabs" style="margin-bottom:16px">
       <button class="active" onclick="authForm('login',this)">${t("login")}</button>
       <button onclick="authForm('register',this)">${t("register")}</button>
     </div>
@@ -280,12 +192,12 @@ function authForm(mode,btn){
   $$(".tabs button").forEach(b=>b.classList.remove("active"));
   if(btn)btn.classList.add("active");
   $("#authForm").innerHTML=`
-  <div class="card">
+  <div class="card" style="margin:0">
     <label>${t("username")}</label>
     <input id="authName" class="input-field" autocomplete="username" placeholder="@username">
     <label>${t("password")}</label>
     <input id="authPass" class="input-field" type="password" autocomplete="${mode==="login"?"current-password":"new-password"}" placeholder="••••••••">
-    ${mode==="register"?`<label>Avatar</label><div class="row"><select id="authAvatar" class="input-field"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select><input id="authPhoto" type="file" accept="image/*" class="input-field"></div>`:""}
+    ${mode==="register"?`<label>Avatar</label><div style="display:flex;gap:8px"><select id="authAvatar" class="input-field"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select><input id="authPhoto" type="file" accept="image/*" class="input-field"></div>`:""}
     <p id="authError" class="small" style="color:var(--danger);min-height:16px"></p>
     <button class="btn-primary" style="width:100%" onclick="submitAuth('${mode}')">${t(mode)}</button>
   </div>`;
@@ -299,21 +211,21 @@ function submitAuth(mode){
     const photoFile=$("#authPhoto")?.files[0];
     const finish=photo=>{
       current={id:crypto.randomUUID(),name,pass,avatar:$("#authAvatar").value,photo,nickname:name,bio:"",instagram:"",snapchat:"",score:0,role:"user",vip:false,friends:[],best:0,totalTests:0};
-      users.push(current);persist();toast(lang==='ar'?"تم إنشاء الحساب":"Account created",'success');render();
+      users.push(current);persist();render();
     };
     if(photoFile){const r=new FileReader();r.onload=()=>finish(r.result);r.readAsDataURL(photoFile)}else finish("");
   }else{
     if(name==="bos"&&pass==="Bader@12"){
       current={id:"superadmin",name,pass,avatar:"B",nickname:"Boss Admin",bio:"Super Admin",score:99999,role:"admin",vip:true,friends:[]};
-      persist();toast(lang==='ar'?"مرحباً بك أيها المدير":"Welcome Admin",'success');render();return;
+      persist();render();return;
     }
     const u=users.find(x=>x.name.toLowerCase()===name.toLowerCase()&&x.pass===pass);
     if(!u){$("#authError").textContent=lang==='ar'?"بيانات الدخول غير صحيحة":"Invalid credentials";return}
-    current=u;persist();toast(lang==='ar'?"مرحباً بعودتك!":"Welcome back!",'success');render();
+    current=u;persist();render();
   }
 }
 
-/* --- DATA ENGINE --- */
+/* --- DATA --- */
 const sentences={
 ar:["القراءة تفتح أبواباً جديدة للفكر","التدريب اليومي يصنع فرقاً كبيراً","الوقت مناسب لتعلم مهارة مفيدة","النجاح يبدأ بخطوة صغيرة","الهدوء يساعد على التركيز","كل محاولة تقربك من هدفك","الكتابة السريعة تحتاج إلى ممارسة","التعلم رحلة مستمرة وممتعة","الصبر مفتاح إتقان المهارات","الأفكار الجميلة تحتاج إلى عمل","نظم وقتك لتحقق أهدافك","المعرفة قوة تبني المستقبل","الإنجاز يبدأ بالتخطيط الجيد","اللغة جسر للتواصل بين الناس","العمل المتقن يعكس شخصية صاحبه","التفاؤل يمنح اليوم بداية رائعة","التركيز يحسن جودة العمل","كل يوم يحمل فرصة جديدة","القرارات الصغيرة تصنع نتائج كبيرة","النجاح يحتاج إلى عزيمة وصبر","الابتكار يبدأ بسؤال مختلف","التعاون يجعل المهام أسهل","الاستراحة القصيرة تجدد النشاط","الاستمرار أهم من السرعة","الكتابة الواضحة تسهل الفهم","التجربة تعلمنا طرقاً جديدة","الهدف الواضح يقود إلى التقدم","العادات الجيدة تصنع حياة أفضل","ابدأ الآن ولا تنتظر الوقت المثالي","التوازن أساس يوم منتج"],
 en:["Reading opens new doors for the mind","Daily practice makes a real difference","Now is a good time to learn a useful skill","Success begins with a small step","A calm mind helps you focus","Every attempt brings you closer to your goal","Fast typing takes regular practice","Learning is a continuous journey","Patience is the key to mastering skills","Good ideas need thoughtful work","Plan your time to reach your goals","Knowledge helps build the future","Progress begins with a clear plan","Language connects people across the world","Careful work reflects its creator","Optimism gives the day a bright start","Focus improves the quality of work","Every day brings a new opportunity","Small choices can create big results","Success takes patience and determination","Innovation begins with a different question","Working together makes tasks easier","A short break can renew your energy","Consistency matters more than speed","Clear writing makes ideas easier to understand","Experience teaches us new approaches","A clear goal helps you move forward","Good habits can shape a better life","Start now instead of waiting for perfect timing","Balance is the foundation of a productive day"]
@@ -338,7 +250,7 @@ const genNews=(count=100)=>Array.from({length:count},()=>pick(newsBits[lang])+".
 /* --- CHAT HELPERS --- */
 function bubbleHTML(text,who='bot'){
   const u=who==='me'?current:{avatar:'B',name:'Bot'};
-  return `<div class="bubble-wrap ${who}"><div class="bubble-avatar">${who==='me'?esc((u.avatar||'?')):'B'}</div><div><div class="bubble">${esc(text)}</div><div class="bubble-time">${nowTime()}</div></div></div>`;
+  return `<div class="bubble-wrap ${who}"><div class="bubble-avatar">${who==='me'?esc((u.avatar||'?')):'B'}</div><div><div class="bubble">${esc(text)}</div></div></div>`;
 }
 
 function say(text,who="bot"){
@@ -352,26 +264,30 @@ function botReply(text,fn){
   const id='typing_'+Date.now();
   log.insertAdjacentHTML('beforeend',`<div class="bubble-wrap bot" id="${id}"><div class="bubble-avatar">B</div><div class="bubble typing"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div>`);
   log.scrollTop=log.scrollHeight;
-  setTimeout(()=>{const el=document.getElementById(id);if(el)el.remove();say(text);if(fn)fn()},700);
+  setTimeout(()=>{const el=document.getElementById(id);if(el)el.remove();say(text);if(fn)fn()},600);
 }
 
-/* --- BOT --- */
+/* --- BOT VIEW (FULL SCREEN) --- */
 function renderBot(){
   $("#app").innerHTML=`
-  <div class="row" style="margin-bottom:8px">
-    <div><h3 style="font-size:15px">Typing Bot</h3><div class="muted">${lang==='ar'?'اكتب أمراً لبدء التدريب':'Type a command to start'}</div></div>
-    <button class="btn-secondary" style="flex:0 0 auto" onclick="resetBot()">${lang==='ar'?'جديد':'New'}</button>
-  </div>
-  <div id="chatlog" class="chatlog card" style="padding:8px"></div>
-  <div class="chat-input-area">
-    <input id="botInput" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendBot()">
-    <button class="send-btn" onclick="sendBot()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
-  </div>
-  <div id="typingArea"></div>`;
+  <div id="bot-view">
+    <div id="chatlog" class="chatlog"></div>
+    <div id="typingArea"></div>
+    <div class="chat-input-area">
+      <input id="botInput" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendBot()">
+      <button class="send-btn" onclick="sendBot()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
+    </div>
+  </div>`;
+  
+  const log = $("#chatlog");
+  log.innerHTML = `
+    <div style="text-align:center;margin:20px 0">
+      <div style="font-size:15px;font-weight:700">Typing Bot</div>
+      <div class="muted">${lang==='ar'?'اكتب أمراً لبدء التدريب':'Type a command to start'}</div>
+    </div>
+  `;
   botReply(lang==='ar'?"مرحباً! اكتب:\n• جمل\n• سوالف\n• جريدة\n• تكرار\n\nأو اكتب الأمرين معاً (مثل: جمل سهل)":"Hi! Type:\n• sentences\n• stories\n• newspaper\n• repeat\n\nOr combine (e.g., sentences easy)");
 }
-
-function resetBot(){flow="";typingState=null;renderBot()}
 
 function sendBot(){
   const input=$("#botInput"),v=input.value.trim();if(!v)return;
@@ -379,7 +295,6 @@ function sendBot(){
   if(typingState){checkTyping(v);return}
   const cmd=v.toLowerCase();
   
-  // Quick combined command
   const modeMatch=cmd.match(/(جمل|سوالف|جريدة|تكرار|sentences|stories|newspaper|repeat)/);
   const diffMatch=cmd.match(/(سهل|متوسط|صعب|easy|medium|hard)/);
   
@@ -390,7 +305,7 @@ function sendBot(){
       flow=mode;
       const level=(d==="سهل"||d==="easy")?"easy":(d==="صعب"||d==="hard")?"hard":"medium";
       const arr=flow==="sentences"?genSentences(level):flow==="stories"?genStories(level):genNews();
-      botReply(lang==='ar'?`جاري التجهيز...`:"Preparing...",()=>startCountdown(()=>startTyping(pick(arr))));
+      botReply(t("prepare"),()=>startCountdown(()=>startTyping(pick(arr))));
       return;
     }
   }
@@ -402,7 +317,7 @@ function sendBot(){
   if(["سهل","متوسط","صعب","easy","medium","hard"].includes(cmd)&&flow){
     const level=(cmd==="سهل"||cmd==="easy")?"easy":(cmd==="صعب"||cmd==="hard")?"hard":"medium";
     const arr=flow==="sentences"?genSentences(level):flow==="stories"?genStories(level):genNews();
-    botReply(lang==='ar'?"استعد...":"Get ready...",()=>startCountdown(()=>startTyping(pick(arr))));return;
+    botReply(t("getReady"),()=>startCountdown(()=>startTyping(pick(arr))));return;
   }
   if(["تكرار","repeat"].includes(cmd)){flow="repeat";botReply(t("repeatCount"));return}
   if(flow==="repeat"&&/^\d+$/.test(cmd)){
@@ -411,21 +326,22 @@ function sendBot(){
     const target=items.map(x=>{const m=x.match(/^(.*) \((\d)\)$/);return Array(Number(m[2])).fill(m[1]).join(" ")}).join(" ");
     botReply(items.join("   •   "),()=>startCountdown(()=>startTyping(target)));flow="";return;
   }
-  botReply(lang==='ar'?"لم أفهم الأمر. جرّب: جمل، سوالف، جريدة، أو تكرار.":"Unknown command. Try: sentences, stories, newspaper, or repeat.");
+  botReply(t("unknownCmd"));
 }
 
 function startCountdown(done){
   let n=3;const tick=()=>{
     if(n>0){say(String(n));setTimeout(tick,650)}
-    else{say(lang==='ar'?"انطلق!":"Go!");done()}
+    else{say(t("go"));done()}
   };tick();
 }
 
 function startTyping(text){
   typingState={text,started:Date.now(),typed:"",correct:0,errors:0};
+  $("#typingArea").classList.add("active");
   $("#typingArea").innerHTML=`
-  <div class="typing-card">
-    <div class="typing-target" id="typingTarget"></div>
+  <div class="card" style="margin:0">
+    <div class="typing-target" id="typingTarget" style="font-size:14px;line-height:2;margin-bottom:12px;"></div>
     <div class="progress-bar"><div class="progress-fill" id="typeProgress"></div></div>
     <input id="typeInput" class="input-field" autocomplete="off" placeholder="${t("typeHere")}" oninput="typingInput()">
     <div class="live-stats">
@@ -480,26 +396,24 @@ function finishTyping(){
   
   typingState=null;
   const rating=accuracy>=95&&wpm>=40?'perfect':accuracy>=85?'great':accuracy>=70?'good':'keepGoing';
-  const ratingMsg=t(rating);
   
   $("#typingArea").innerHTML=`
-  <div class="typing-card" style="text-align:center">
-    <div style="font-size:32px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">${wpm}</div>
-    <div class="muted" style="margin-bottom:16px">WPM · ${ratingMsg}</div>
-    <div class="row" style="margin-bottom:14px">
+  <div class="card" style="margin:0;text-align:center">
+    <div style="font-size:28px;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">${wpm}</div>
+    <div class="muted" style="margin-bottom:16px">WPM · ${t(rating)}</div>
+    <div style="display:flex;justify-content:space-around;margin-bottom:14px">
       <div><div class="stat-value">${accuracy}%</div><div class="stat-label">${t("accuracy")}</div></div>
       <div><div class="stat-value">+${points}</div><div class="stat-label">${t("score")}</div></div>
       <div><div class="stat-value">${s.errors}</div><div class="stat-label">Errors</div></div>
     </div>
     <button class="btn-primary" style="width:100%" onclick="startTyping('${s.text.replace(/'/g,"\\'")}');typingState.started=Date.now();">${t("retry")}</button>
   </div>`;
-  toast(`+${points} ${t("score")} · ${wpm} WPM`,'success');
 }
 
 /* --- LEADERBOARD --- */
 function renderLeaderboard(){
   const sorted=[...users].filter(u=>u.role!=='admin').sort((a,b)=>(b.score||0)-(a.score||0));
-  $("#app").innerHTML=`<h3 style="font-size:16px;margin-bottom:12px">${t("leaderboard")}</h3>
+  $("#app").innerHTML=`<div style="padding:16px"><h3 style="font-size:16px;margin-bottom:12px">${t("leaderboard")}</h3>
   ${sorted.length?sorted.map((u,i)=>{
     const rank=i+1,cls=rank<=3?`top-${rank}`:'';
     return `<div class="rank-item ${cls}" onclick="viewProfile('${u.id}')">
@@ -511,14 +425,14 @@ function renderLeaderboard(){
       </div>
       <div style="font-weight:800;font-size:14px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${u.score||0}</div>
     </div>`;
-  }).join(""):`<p class="muted center" style="padding:40px 0">${t("noUsers")}</p>`}`;
+  }).join(""):`<p class="muted center" style="padding:40px 0">${t("noUsers")}</p>`}</div>`;
 }
 
 /* --- COMMUNITY --- */
 function renderCommunity(){
-  $("#app").innerHTML=`<h3 style="font-size:16px;margin-bottom:12px">${t("community")}</h3>
-  <div class="search-bar"><input id="userSearch" placeholder="${t("search")}" oninput="filterUsers()"></div>
-  <div id="userList"></div>`;
+  $("#app").innerHTML=`<div style="padding:16px"><h3 style="font-size:16px;margin-bottom:12px">${t("community")}</h3>
+  <div class="search-bar" style="margin-bottom:12px"><input id="userSearch" class="input-field" placeholder="${t("search")}" oninput="filterUsers()"></div>
+  <div id="userList"></div></div>`;
   filterUsers();
 }
 
@@ -526,15 +440,15 @@ function filterUsers(){
   const q=($("#userSearch")?.value||"").toLowerCase();
   const list=users.filter(u=>u.id!==current.id&&u.role!=='admin'&&(u.name.toLowerCase().includes(q)||(u.nickname||'').toLowerCase().includes(q)));
   $("#userList").innerHTML=list.length?list.map(u=>`
-    <div class="list-item">
-      <div class="person" onclick="viewProfile('${u.id}')">
+    <div class="list-item" style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="person" onclick="viewProfile('${u.id}')" style="display:flex;align-items:center;gap:10px;cursor:pointer">
         ${avatar(u)}
-        <div class="person-info">
-          <div class="person-name">${esc(u.nickname||u.name)} ${badge(u)}</div>
-          <div class="person-handle">@${esc(u.name)} · ${u.score||0} pts</div>
+        <div>
+          <div style="font-weight:700;font-size:13px">${esc(u.nickname||u.name)} ${badge(u)}</div>
+          <div class="muted">@${esc(u.name)} · ${u.score||0} pts</div>
         </div>
       </div>
-      <button class="btn-secondary" style="flex:0 0 auto" onclick="event.stopPropagation();openPrivate('${u.id}')">${t("message")}</button>
+      <button class="btn-secondary" style="flex:0 0 auto;padding:6px 10px" onclick="event.stopPropagation();openPrivate('${u.id}')">${t("message")}</button>
     </div>
   `).join(""):`<p class="muted center" style="padding:40px 0">${lang==='ar'?'لا نتائج':'No results'}</p>`;
 }
@@ -543,32 +457,34 @@ function filterUsers(){
 function renderSettings(){
   const themes=["Dark","Light","Midnight","Ocean","Sunset","Forest","Cyberpunk"];
   $("#app").innerHTML=`
-  <h3 style="font-size:16px;margin-bottom:12px">${t("settings")}</h3>
-  <div class="card">
-    <label>${t("theme")}</label>
-    <select class="input-field" onchange="changeTheme(this.value)">${themes.map(x=>`<option ${document.documentElement.dataset.theme===x?"selected":""}>${x}</option>`).join("")}</select>
-    <label>${t("language")}</label>
-    <button class="btn-secondary" style="width:100%" onclick="toggleLang()">${lang==='ar'?'English':'العربية'}</button>
-  </div>
-  <div class="card">
-    <div class="row" style="margin-bottom:12px">
-      <div style="text-align:center"><div class="stat-value">${current.best||0}</div><div class="stat-label">${t("best")}</div></div>
-      <div style="text-align:center"><div class="stat-value">${current.score||0}</div><div class="stat-label">${t("score")}</div></div>
-      <div style="text-align:center"><div class="stat-value">${current.totalTests||0}</div><div class="stat-label">${t("tests")}</div></div>
+  <div style="padding:16px">
+    <h3 style="font-size:16px;margin-bottom:12px">${t("settings")}</h3>
+    <div class="card" style="margin:0 0 12px 0">
+      <label>${t("theme")}</label>
+      <select class="input-field" onchange="changeTheme(this.value)">${themes.map(x=>`<option ${document.documentElement.dataset.theme===x?"selected":""}>${x}</option>`).join("")}</select>
+      <label>${t("language")}</label>
+      <button class="btn-secondary" style="width:100%" onclick="toggleLang()">${lang==='ar'?'English':'العربية'}</button>
     </div>
-  </div>
-  <div class="stack">
-    <button class="btn-secondary" onclick="editProfile()">${t("edit")}</button>
-    <button class="btn-secondary" onclick="openSupport()">${t("support")}</button>
-    ${!current.vip&&current.role!=='admin'?`<button class="btn-primary" onclick="vipModal()">${t("vip")}</button>`:''}
-    ${current.role==='admin'?`<button class="btn-secondary" onclick="adminPanel()">${t("admin")}</button>`:''}
-    <button class="btn-danger" onclick="logout()">${t("logout")}</button>
+    <div class="card" style="margin:0 0 12px 0">
+      <div style="display:flex;justify-content:space-around;margin-bottom:12px">
+        <div style="text-align:center"><div class="stat-value">${current.best||0}</div><div class="stat-label">${t("best")}</div></div>
+        <div style="text-align:center"><div class="stat-value">${current.score||0}</div><div class="stat-label">${t("score")}</div></div>
+        <div style="text-align:center"><div class="stat-value">${current.totalTests||0}</div><div class="stat-label">${t("tests")}</div></div>
+      </div>
+    </div>
+    <div class="stack" style="display:grid;gap:8px">
+      <button class="btn-secondary" onclick="editProfile()">${t("edit")}</button>
+      <button class="btn-secondary" onclick="openSupport()">${t("support")}</button>
+      ${!current.vip&&current.role!=='admin'?`<button class="btn-primary" onclick="vipModal()">${t("vip")}</button>`:''}
+      ${current.role==='admin'?`<button class="btn-secondary" onclick="adminPanel()">${t("admin")}</button>`:''}
+      <button class="btn-danger" onclick="logout()">${t("logout")}</button>
+    </div>
   </div>`;
 }
 
-function changeTheme(v){localStorage.setItem("typing_theme",v);render();toast(lang==='ar'?"تم تغيير الثيم":"Theme changed",'success')}
+function changeTheme(v){localStorage.setItem("typing_theme",v);render()}
 function toggleLang(){lang=lang==="ar"?"en":"ar";localStorage.setItem("typing_lang",lang);render()}
-function logout(){current=null;localStorage.removeItem("typing_user");page="bot";render();toast(lang==='ar'?"تم تسجيل الخروج":"Logged out",'info')}
+function logout(){current=null;localStorage.removeItem("typing_user");page="bot";render()}
 
 /* --- MODALS --- */
 function modal(title,content){
@@ -605,17 +521,9 @@ function saveProfile(){
     if(photo)current.photo=photo;
     users=users.map(u=>u.id===current.id?current:u);
     persist();closeModal();render();
-    toast(lang==='ar'?"تم حفظ التعديلات":"Profile saved",'success');
   };
   if(file){const r=new FileReader();r.onload=()=>apply(r.result);r.readAsDataURL(file)}
   else apply(null);
-}
-
-function socialLinks(u){
-  let h="";
-  if(u.instagram)h+=`<a class="social instagram" target="_blank" href="https://instagram.com/${encodeURIComponent(u.instagram.replace(/^@/,""))}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></svg>Instagram</a>`;
-  if(u.snapchat)h+=`<a class="social snapchat" target="_blank" href="https://www.snapchat.com/add/${encodeURIComponent(u.snapchat.replace(/^@/,""))}"><svg viewBox="0 0 24 24"><path d="M12 3c-3 0-4 2-4 5v4c0 1-2 2-4 2 1 2 2 3 4 3s3-1 4-3c1 0 3 0 4-2-2 0-4-1-4-2V8c0-3-1-5-4-5Z"/></svg>Snapchat</a>`;
-  return h;
 }
 
 function viewProfile(id){
@@ -624,7 +532,6 @@ function viewProfile(id){
   modal(t("profile"),`
     <div class="center" style="margin-bottom:12px">${avatar(u)}<h3 style="margin-top:8px">${esc(u.nickname||u.name)} ${badge(u)}</h3><div class="muted">@${esc(u.name)}</div></div>
     ${u.bio?`<p class="center" style="font-size:12px;margin-bottom:12px">${esc(u.bio)}</p>`:''}
-    <div class="center">${socialLinks(u)}</div>
     <div class="row" style="margin:16px 0">
       <div class="center"><div class="stat-value">${u.score||0}</div><div class="stat-label">${t("score")}</div></div>
       <div class="center"><div class="stat-value">${u.best||0}</div><div class="stat-label">WPM</div></div>
@@ -637,7 +544,7 @@ function addFriend(id){
   const u=users.find(x=>x.id===id);if(!u)return;
   current.friends=current.friends||[];
   if(!current.friends.includes(id))current.friends.push(id);
-  persist();closeModal();toast(lang==='ar'?"تمت الإضافة":"Added",'success');
+  persist();closeModal();
 }
 
 /* --- PRIVATE CHAT --- */
@@ -646,8 +553,8 @@ function openPrivate(id){
   const key=[current.id,id].sort().join(":"),arr=chats[key]||[];
   modal(`<svg viewBox="0 0 24 24" style="width:16px;height:16px;vertical-align:middle"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> ${esc(activeTarget.nickname||activeTarget.name)}`,
     `<div class="chatlog" id="privateLog" style="height:320px"></div>
-    <div class="chat-input-area">
-      <input id="privateInput" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendPrivate()">
+    <div class="chat-input-area" style="padding:10px 0 0 0;border:none">
+      <input id="privateInput" class="input-field" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendPrivate()">
       <button class="send-btn" onclick="sendPrivate()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
     </div>`);
   arr.forEach(m=>privateBubble(m.text,m.from===current.id));
@@ -656,7 +563,7 @@ function openPrivate(id){
 
 function privateBubble(text,mine){
   const log=$("#privateLog");if(!log)return;
-  log.insertAdjacentHTML('beforeend',`<div class="bubble-wrap ${mine?'me':'bot'}"><div class="bubble-avatar">${mine?esc(current.avatar||'?'):esc(activeTarget.avatar||'?')}</div><div><div class="bubble">${esc(text)}</div><div class="bubble-time">${nowTime()}</div></div></div>`);
+  log.insertAdjacentHTML('beforeend',`<div class="bubble-wrap ${mine?'me':'bot'}"><div class="bubble-avatar">${mine?esc(current.avatar||'?'):esc(activeTarget.avatar||'?')}</div><div><div class="bubble">${esc(text)}</div></div></div>`);
   log.scrollTop=log.scrollHeight;
 }
 
@@ -680,8 +587,8 @@ function sendPrivate(){
 function openSupport(){
   modal(t("support"),`
     <div class="chatlog" id="supportLog" style="height:320px"></div>
-    <div class="chat-input-area">
-      <input id="supportInput" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendSupport()">
+    <div class="chat-input-area" style="padding:10px 0 0 0;border:none">
+      <input id="supportInput" class="input-field" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')sendSupport()">
       <button class="send-btn" onclick="sendSupport()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
     </div>`);
   const log=$("#supportLog");
@@ -700,39 +607,6 @@ function sendSupport(){
   persist();openSupport();
 }
 
-/* --- ADMIN --- */
-function adminPanel(){
-  const blocked=users.filter(u=>u.banned);
-  const supportUsers=[...new Map(support.map(m=>[m.userId,m])).values()];
-  modal(t("admin"),`
-    <h4 style="font-size:13px;margin-bottom:8px">${lang==='ar'?'المستخدمون المحظورون':'Banned Users'}</h4>
-    <div>${blocked.length?blocked.map(u=>`<div class="list-item"><span>${esc(u.name)}</span><button class="btn-secondary" onclick="unban('${u.id}')">Unban</button></div>`).join(""):`<p class="muted">${lang==='ar'?'لا يوجد':'None'}</p>`}</div>
-    <hr>
-    <h4 style="font-size:13px;margin-bottom:8px">${lang==='ar'?'صندوق الدعم':'Support Inbox'}</h4>
-    <div>${supportUsers.length?supportUsers.map(m=>`<div class="list-item"><span>${esc(m.userName)}</span><button class="btn-secondary" onclick="closeModal();adminReply('${m.userId}')">Open</button></div>`).join(""):`<p class="muted">${lang==='ar'?'لا رسائل':'No messages'}</p>`}</div>
-  `);
-}
-function unban(id){const u=users.find(x=>x.id===id);if(u)u.banned=false;persist();adminPanel();toast("Unbanned",'success')}
-function adminReply(id){
-  const u=users.find(x=>x.id===id);if(!u)return;
-  modal(`Support: ${esc(u.name)}`,`
-    <div class="chatlog" id="adminSupportLog" style="height:320px"></div>
-    <div class="chat-input-area">
-      <input id="adminSupportInput" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')adminSend('${id}')">
-      <button class="send-btn" onclick="adminSend('${id}')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
-    </div>`);
-  support.filter(m=>m.userId===id).forEach(m=>{
-    const mine=m.from==="admin";
-    $("#adminSupportLog").insertAdjacentHTML('beforeend',`<div class="bubble-wrap ${mine?'me':'bot'}"><div class="bubble-avatar">${mine?'A':'U'}</div><div><div class="bubble">${esc(m.text)}</div></div></div>`);
-  });
-}
-function adminSend(id){
-  const input=$("#adminSupportInput"),text=input.value.trim();if(!text)return;
-  input.value="";
-  support.push({userId:id,userName:users.find(u=>u.id===id)?.name||"",from:"admin",text,at:Date.now()});
-  persist();adminReply(id);
-}
-
 /* --- VIP --- */
 function vipModal(){
   modal(t("vip"),`
@@ -742,8 +616,7 @@ function vipModal(){
       <div class="small" style="line-height:2">
         ✓ ${lang==='ar'?'شارة VIP مميزة':'Premium VIP badge'}<br>
         ✓ ${lang==='ar'?'ثيمات حصرية':'Exclusive themes'}<br>
-        ✓ ${lang==='ar'?'إحصائيات متقدمة':'Advanced statistics'}<br>
-        ✓ ${lang==='ar'?'أولوية في الدعم':'Priority support'}
+        ✓ ${lang==='ar'?'إحصائيات متقدمة':'Advanced statistics'}
       </div>
     </div>
     <div class="vip-plan" onclick="payment('monthly')">
@@ -751,7 +624,7 @@ function vipModal(){
       <div style="font-weight:800;color:var(--accent)">$2.99</div>
     </div>
     <div class="vip-plan featured" onclick="payment('yearly')">
-      <div><div style="font-weight:700">${t("yearly")} ★</div><div class="small">$26.99/yr · Save 25%</div></div>
+      <div><div style="font-weight:700">${t("yearly")} ★</div><div class="small">$26.99/yr</div></div>
       <div style="font-weight:800;color:var(--accent)">$26.99</div>
     </div>
     <div class="vip-plan" onclick="payment('lifetime')">
@@ -778,14 +651,46 @@ function payment(plan){
 }
 
 function payNow(plan){
-  modal(lang==='ar'?"معالجة الدفع":"Processing",`<div class="spinner"></div><p class="center muted">${lang==='ar'?'يرجى الانتظار...':'Please wait...'}</p>`);
+  modal(lang==='ar'?"معالجة الدفع":"Processing",`<div class="spinner" style="width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:24px auto"></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style><p class="center muted">${lang==='ar'?'يرجى الانتظار...':'Please wait...'}</p>`);
   setTimeout(()=>{
     current.vip=true;current.vipPlan=plan;
     users=users.map(u=>u.id===current.id?current:u);
     persist();
     modal(lang==='ar'?"تمت الترقية":"Upgraded",`<div class="center" style="padding:16px 0"><div style="font-size:48px;margin-bottom:12px">✓</div><h3 style="background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent">${lang==='ar'?'مرحباً بك في VIP!':'Welcome to VIP!'}</h3></div><button class="btn-primary" style="width:100%" onclick="closeModal();render()">${lang==='ar'?'ابدأ':'Continue'}</button>`);
-    toast(lang==='ar'?"تمت الترقية بنجاح":"Upgraded successfully",'success');
   },2000);
+}
+
+/* --- ADMIN --- */
+function adminPanel(){
+  const blocked=users.filter(u=>u.banned);
+  const supportUsers=[...new Map(support.map(m=>[m.userId,m])).values()];
+  modal(t("admin"),`
+    <h4 style="font-size:13px;margin-bottom:8px">${lang==='ar'?'المستخدمون المحظورون':'Banned Users'}</h4>
+    <div>${blocked.length?blocked.map(u=>`<div class="list-item"><span>${esc(u.name)}</span><button class="btn-secondary" onclick="unban('${u.id}')">Unban</button></div>`).join(""):`<p class="muted">${lang==='ar'?'لا يوجد':'None'}</p>`}</div>
+    <hr style="border:0;border-top:1px solid var(--border);margin:14px 0">
+    <h4 style="font-size:13px;margin-bottom:8px">${lang==='ar'?'صندوق الدعم':'Support Inbox'}</h4>
+    <div>${supportUsers.length?supportUsers.map(m=>`<div class="list-item"><span>${esc(m.userName)}</span><button class="btn-secondary" onclick="closeModal();adminReply('${m.userId}')">Open</button></div>`).join(""):`<p class="muted">${lang==='ar'?'لا رسائل':'No messages'}</p>`}</div>
+  `);
+}
+function unban(id){const u=users.find(x=>x.id===id);if(u)u.banned=false;persist();adminPanel()}
+function adminReply(id){
+  const u=users.find(x=>x.id===id);if(!u)return;
+  modal(`Support: ${esc(u.name)}`,`
+    <div class="chatlog" id="adminSupportLog" style="height:320px"></div>
+    <div class="chat-input-area" style="padding:10px 0 0 0;border:none">
+      <input id="adminSupportInput" class="input-field" placeholder="${t("typeHere")}" onkeydown="if(event.key==='Enter')adminSend('${id}')">
+      <button class="send-btn" onclick="adminSend('${id}')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg></button>
+    </div>`);
+  support.filter(m=>m.userId===id).forEach(m=>{
+    const mine=m.from==="admin";
+    $("#adminSupportLog").insertAdjacentHTML('beforeend',`<div class="bubble-wrap ${mine?'me':'bot'}"><div class="bubble-avatar">${mine?'A':'U'}</div><div><div class="bubble">${esc(m.text)}</div></div></div>`);
+  });
+}
+function adminSend(id){
+  const input=$("#adminSupportInput"),text=input.value.trim();if(!text)return;
+  input.value="";
+  support.push({userId:id,userName:users.find(u=>u.id===id)?.name||"",from:"admin",text,at:Date.now()});
+  persist();adminReply(id);
 }
 
 /* --- NAV --- */
