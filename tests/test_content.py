@@ -1,73 +1,56 @@
-import asyncio
+from pathlib import Path
+import re
 import unittest
 
-from fastapi import HTTPException
-
-import main
+ROOT = Path(__file__).resolve().parents[1]
 
 
-class ContentPoolTests(unittest.TestCase):
-    def test_pool_sizes_and_uniqueness_for_every_level(self):
-        expected = {"sentences": 400, "stories": 500, "news": 400, "repeat": 350}
-        for language in ("ar", "en"):
-            for level in ("easy", "medium", "hard"):
-                for game, size in expected.items():
-                    with self.subTest(language=language, level=level, game=game):
-                        pool = main.CONTENT[language][game][level]
-                        self.assertEqual(len(pool), size)
-                        self.assertEqual(len(set(pool)), size)
+class FrontendContractTests(unittest.TestCase):
+    def setUp(self):
+        self.html = (ROOT / "static/index.html").read_text()
 
-    def test_repeat_words_are_unique_and_each_is_shown_three_times(self):
-        for count in (1, 20):
-            with self.subTest(count=count):
-                result = asyncio.run(main.get_target("repeat", "medium", "ar", count))
-                words = result["target"].split()
-                self.assertEqual(len(words), count * 3)
-                self.assertEqual(result["display"], result["target"])
-                self.assertTrue(all(words[i] == words[i + 1] == words[i + 2]
-                                    for i in range(0, len(words), 3)))
-                self.assertEqual(len(set(words[::3])), count)
+    def test_exactly_five_bottom_tabs_and_matching_pages(self):
+        tabs = re.findall(r'data-page="([^"]+)"', self.html)
+        self.assertEqual(tabs, ["home", "bot", "community", "messages", "settings"])
+        for tab in tabs:
+            self.assertIn(f'id="page-{tab}"', self.html)
 
-    def test_repeat_count_outside_range_is_rejected(self):
-        for count in (None, 0, 21):
-            with self.subTest(count=count):
-                with self.assertRaises(HTTPException) as caught:
-                    asyncio.run(main.get_target("repeat", "easy", "ar", count))
-                self.assertEqual(caught.exception.status_code, 422)
+    def test_brand_and_cairo_remain(self):
+        self.assertIn("mr.typing", self.html)
+        self.assertIn("Cairo", self.html)
+        self.assertNotIn("Typing Master Pro", self.html)
 
-    def test_regular_game_target_reports_expected_pool_size(self):
-        expected = {"sentences": 400, "stories": 500, "news": 400}
-        for game, size in expected.items():
-            with self.subTest(game=game):
-                result = asyncio.run(main.get_target(game, "hard", "ar", None))
-                self.assertEqual(result["pool_size"], size)
-                self.assertTrue(result["target"])
+    def test_viewport_does_not_disable_user_zoom(self):
+        viewport = re.search(
+            r'<meta\s+name="viewport"\s+content="([^"]+)"', self.html
+        ).group(1)
+        self.assertIn("viewport-fit=cover", viewport)
+        self.assertNotIn("user-scalable=no", viewport)
+        self.assertNotIn("maximum-scale=1", viewport)
+        self.assertNotIn("autofocus", self.html)
 
-    def test_home_page_uses_new_brand_and_cairo(self):
-        response = asyncio.run(main.serve_app())
-        html = response.body.decode()
-        self.assertIn("mr.typing", html)
-        self.assertIn("Cairo", html)
-        self.assertNotIn("Typing Master Pro", html)
+    def test_composers_and_target_have_stable_unique_nodes(self):
+        for element in (
+            "botInput",
+            "messageInput",
+            "targetText",
+            "botLog",
+            "messageLog",
+        ):
+            self.assertEqual(self.html.count(f'id="{element}"'), 1)
+        self.assertRegex(self.html, r'id="targetText"[^>]*dir="auto"')
 
-    def test_account_and_community_sections_remain_visible_but_disabled(self):
-        html = asyncio.run(main.serve_app()).body.decode()
-        for tab in ("account", "leaderboard", "community", "vip"):
-            with self.subTest(tab=tab):
-                self.assertIn(f'data-tab="{tab}"', html)
-        self.assertIn("Coming soon", html)
-        self.assertIn("قيد التجهيز", html)
-        self.assertIn("Sign in", html)
-        self.assertIn("Create account", html)
-        self.assertIn("<button disabled>", html)
-        self.assertIn("لا يوجد شراء", html)
+    def test_no_coming_soon_disabled_account_placeholder(self):
+        self.assertNotIn("Coming soon", self.html)
+        self.assertNotIn("قيد التجهيز", self.html)
+        self.assertIn('id="authForm"', self.html)
+        self.assertIn('src="/static/app.js"', self.html)
 
-    def test_mobile_layout_uses_dynamic_viewport_and_static_ui_is_translatable(self):
-        html = asyncio.run(main.serve_app()).body.decode()
-        self.assertIn("100dvh - 87px", html)
-        self.assertNotIn("100svh - 87px", html)
-        self.assertIn("function applyStaticText()", html)
-        self.assertIn("Training data stays on this device", html)
+    def test_social_assets_are_local_valid_svg(self):
+        for network in ("instagram", "snapchat", "x"):
+            content = (ROOT / f"static/icons/{network}.svg").read_text()
+            self.assertIn("<svg", content)
+            self.assertNotIn("<script", content.lower())
 
 
 if __name__ == "__main__":

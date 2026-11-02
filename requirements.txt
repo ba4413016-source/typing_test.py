@@ -1,2 +1,9 @@
-fastapi==0.110.0
-uvicorn==0.28.0
+argon2-cffi==25.1.0
+fastapi==0.162.0
+Pillow==12.3.0
+psycopg[binary]==3.3.6
+python-multipart==0.0.33
+regex==2026.9.29
+SQLAlchemy==2.0.55
+uvicorn==0.54.0
+wordfreq==3.1.1
