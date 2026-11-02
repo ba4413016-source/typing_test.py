@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from .models import Base
+from .migrations import apply_migrations
 
 
 def make_engine(url: str) -> Engine:
@@ -34,7 +35,10 @@ def initialize_database(engine: Engine) -> None:
     with engine.begin() as connection:
         if engine.dialect.name == "postgresql":
             connection.execute(text("SELECT pg_advisory_xact_lock(748219341)"))
+        elif engine.dialect.name == "sqlite":
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
         Base.metadata.create_all(connection)
+        apply_migrations(connection)
 
 
 def make_session_factory(engine: Engine):

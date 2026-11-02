@@ -7,10 +7,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, delete, desc, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -18,7 +20,13 @@ from sqlalchemy.orm import Session
 
 from .config import Settings
 from .database import initialize_database, make_engine, make_session_factory
-from .game_engine import generate_target, score_attempt, warm_word_corpora
+from .game_engine import (
+    TOPICS,
+    TOPIC_LABELS,
+    generate_target,
+    score_attempt,
+    warm_word_corpora,
+)
 from .models import (
     Attempt,
     Block,
@@ -36,12 +44,14 @@ from .models import (
     uid,
 )
 from .security import (
+    MessageImageBodyLimitMiddleware,
     RateLimiter,
     aware,
     clean_text,
     digest_token,
     normalize_username,
     normalized_avatar,
+    normalized_message_image,
     opaque_token,
     password_hash,
     password_matches,
@@ -82,6 +92,7 @@ class RoundInput(Input):
     difficulty: str = Field(min_length=1, max_length=12)
     language: str = Field(min_length=2, max_length=2)
     count: int | None = Field(default=None, ge=1, le=20)
+    topic: str = Field(default="mixed", min_length=1, max_length=24)
 
 
 class MessageInput(Input):
@@ -95,6 +106,10 @@ class ReadInput(Input):
 class ChallengeInput(RoundInput):
     visibility: str
     max_players: int = Field(ge=2, le=8)
+    round_count: int = Field(default=1, ge=1, le=10)
+    judge_mode: str = Field(default="points", max_length=16)
+    event_kind: str = Field(default="challenge", max_length=16)
+    opponent_username: str | None = Field(default=None, min_length=3, max_length=24)
 
 
 class SuggestionInput(Input):
@@ -115,6 +130,36 @@ def iso(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     return aware(dt).isoformat().replace("+00:00", "Z")
+
+
+def next_friday_start(now: datetime | None = None) -> datetime:
+    """Return next Friday 20:00 in Saudi Arabia, as an aware UTC time."""
+    local_now = aware(now or utcnow()).astimezone(ZoneInfo("Asia/Riyadh"))
+    days_until_friday = (4 - local_now.weekday()) % 7
+    scheduled = local_now.replace(
+        hour=20, minute=0, second=0, microsecond=0
+    ) + timedelta(days=days_until_friday)
+    if scheduled <= local_now:
+        scheduled += timedelta(days=7)
+    return scheduled.astimezone(timezone.utc)
+
+
+def challenge_score_key(mode: str, result: dict[str, Any]) -> tuple[float, ...]:
+    """Server-authoritative, transparent tie-break order for challenge results."""
+    points = float(result["points"])
+    speed = float(result["wpm"])
+    accuracy = float(result["accuracy"])
+    errors = float(result["error_count"])
+    rounds = float(result["rounds_completed"])
+    if mode == "speed":
+        values = (speed, accuracy, points, rounds, -errors)
+    elif mode == "accuracy":
+        values = (accuracy, points, speed, rounds, -errors)
+    elif mode == "fewest_errors":
+        values = (-errors, accuracy, points, speed, rounds)
+    else:
+        values = (points, accuracy, speed, rounds, -errors)
+    return tuple(round(value, 3) for value in values)
 
 
 def db_session(request: Request):
@@ -141,6 +186,9 @@ def fail(status: int, code: str, en: str, ar: str | None = None):
         "challenge_closed": "هذا التحدي مغلق أو انتهت صلاحية دعوته.",
         "challenge_full": "اكتمل عدد المشاركين في التحدي.",
         "challenge_not_active": "التحدي لا يستقبل إجابات الآن.",
+        "invalid_message_image": "تعذر إرسال الصورة؛ استخدم JPEG أو PNG أو WebP حتى 5 ميغابايت.",
+        "challenge_forbidden": "يلزم وجود محادثة خاصة مفتوحة مع هذا المستخدم لإنشاء تحدٍّ مباشر.",
+        "event_not_started": "فعالية الجمعة لم تبدأ بعد؛ موعدها ظاهر في بطاقة الفعالية.",
         "not_enough_players": "يلزم انضمام لاعبين على الأقل لبدء التحدي.",
         "owner_only": "هذا الإجراء متاح لمنشئ التحدي فقط.",
         "admin_required": "هذا القسم متاح لمدير المنصة فقط.",
@@ -422,6 +470,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = factory
     app.state.settings = settings
     app.state.limiter = limiter
+    app.add_middleware(MessageImageBodyLimitMiddleware)
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -466,50 +515,99 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ChallengeParticipant.challenge_id == challenge.id
             )
         ).all()
-        round_ids = [m.round_id for m in members if m.round_id]
-        completed = [m for m in members if m.finished_at]
+        completed = [member for member in members if member.finished_at]
+        deadline_passed = bool(
+            challenge.deadline_at and aware(challenge.deadline_at) <= now
+        )
         if challenge.status == "active" and (
-            len(completed) == len(members)
-            or (challenge.deadline_at and aware(challenge.deadline_at) <= now)
+            deadline_passed
+            or (
+                len(completed) == len(members)
+                and challenge.current_round >= challenge.round_count
+            )
         ):
             challenge.status = "complete"
             db.flush()
-        is_member = any(m.user_id == viewer.id for m in members)
+
+        is_member = any(member.user_id == viewer.id for member in members)
         parts = []
         candidates = []
         for member in members:
-            u = db.get(User, member.user_id)
-            attempt = db.get(Attempt, member.attempt_id) if member.attempt_id else None
-            item = {"user": lite(u), "finished": bool(member.finished_at)}
-            if attempt:
-                item["result"] = {
+            user = db.get(User, member.user_id)
+            attempts = db.execute(
+                select(PracticeRound.challenge_round, Attempt)
+                .join(Attempt, Attempt.round_id == PracticeRound.id)
+                .where(
+                    PracticeRound.challenge_id == challenge.id,
+                    Attempt.user_id == member.user_id,
+                )
+                .order_by(PracticeRound.challenge_round, PracticeRound.created_at)
+            ).all()
+            eligible = [attempt for _, attempt in attempts if attempt.eligible]
+            if eligible:
+                summary = {
+                    "wpm": round(sum(a.wpm for a in eligible) / len(eligible), 2),
+                    "accuracy": round(
+                        sum(a.accuracy for a in eligible) / len(eligible), 2
+                    ),
+                    "points": sum(a.points for a in eligible),
+                    "penalty": sum(a.penalty for a in eligible),
+                    "error_count": sum(a.error_count for a in eligible),
+                    "rounds_completed": len(attempts),
+                    "eligible_rounds": len(eligible),
+                }
+                candidates.append(
+                    (challenge_score_key(challenge.judge_mode, summary), user)
+                )
+            else:
+                summary = None
+            round_results = [
+                {
+                    "round": round_number,
                     "wpm": attempt.wpm,
                     "accuracy": attempt.accuracy,
                     "points": attempt.points,
+                    "penalty": attempt.penalty,
+                    "error_count": attempt.error_count,
+                    "eligible": attempt.eligible,
                 }
-                if attempt.eligible:
-                    candidates.append(
-                        (attempt.wpm, attempt.accuracy, attempt.points, u)
-                    )
+                for round_number, attempt in attempts
+            ]
+            item = {
+                "user": lite(user),
+                "judge": member.user_id == challenge.owner_id,
+                "finished": bool(member.finished_at),
+                "result": summary,
+                "round_results": round_results,
+            }
             parts.append(item)
-        winner = (
-            max(candidates, key=lambda x: (x[0], x[1], x[2]))[3]
-            if candidates and challenge.status == "complete"
-            else None
-        )
+
+        winners = []
+        if candidates and challenge.status == "complete":
+            best_key = max(key for key, _ in candidates)
+            winners = [lite(user) for key, user in candidates if key == best_key]
+        winner = winners[0] if winners else None
+
         round_obj = None
         if is_member and challenge.status in {"active", "complete"}:
-            own = next((m for m in members if m.user_id == viewer.id), None)
-            r = db.get(PracticeRound, own.round_id) if own and own.round_id else None
-            if r:
+            own = next((member for member in members if member.user_id == viewer.id), None)
+            round_row = (
+                db.get(PracticeRound, own.round_id)
+                if own and own.round_id
+                else None
+            )
+            if round_row:
                 round_obj = {
-                    "id": r.id,
-                    "target": r.expected,
-                    "display": r.display,
-                    "game": r.game,
-                    "difficulty": r.difficulty,
-                    "language": r.language,
-                    "word_count": r.word_count,
+                    "id": round_row.id,
+                    "target": round_row.expected,
+                    "display": round_row.display,
+                    "game": round_row.game,
+                    "difficulty": round_row.difficulty,
+                    "language": round_row.language,
+                    "word_count": round_row.word_count,
+                    "topic": round_row.topic,
+                    "round_number": round_row.challenge_round,
+                    "round_count": challenge.round_count,
                     "starts_at": iso(challenge.starts_at),
                     "challenge_id": challenge.id,
                 }
@@ -521,13 +619,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "game": challenge.game,
             "difficulty": challenge.difficulty,
             "language": challenge.language,
+            "topic": challenge.topic,
             "max_players": challenge.max_players,
+            "round_count": challenge.round_count,
+            "current_round": challenge.current_round,
+            "judge_mode": challenge.judge_mode,
+            "event_kind": challenge.event_kind,
+            "scheduled_at": iso(challenge.scheduled_at),
             "created_at": iso(challenge.created_at),
             "starts_at": iso(challenge.starts_at),
             "deadline_at": iso(challenge.deadline_at),
             "participants": parts,
             "round": round_obj,
-            "winner": lite(winner) if winner else None,
+            "winner": winner,
+            "winners": winners,
+            "draw": len(winners) > 1,
             "server_now": iso(now),
         }
         if token is not None or challenge.visibility == "public":
@@ -764,6 +870,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "account_deletion_failed",
                 "Account deletion could not be confirmed.",
             )
+        message_media_ids = db.scalars(
+            select(Message.media_id).where(
+                Message.media_id.is_not(None),
+                or_(Message.sender_id == user.id, Message.recipient_id == user.id),
+            )
+        ).all()
+        if message_media_ids:
+            db.execute(delete(Media).where(Media.id.in_(message_media_ids)))
         db.delete(user)
         db.commit()
         response.delete_cookie(
@@ -968,6 +1082,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         "body": m.body,
                         "created_at": iso(m.created_at),
                         "sender_id": m.sender_id,
+                        "image_url": f"/api/messages/media/{m.media_id}" if m.media_id else None,
+                        "challenge_token": m.challenge_token,
                     },
                     "unread": unread,
                 }
@@ -1010,6 +1126,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "sender_id": m.sender_id,
                     "recipient_id": m.recipient_id,
                     "body": m.body,
+                    "image_url": f"/api/messages/media/{m.media_id}" if m.media_id else None,
+                    "challenge_token": m.challenge_token,
                     "created_at": iso(m.created_at),
                 }
                 for m in rows
@@ -1051,9 +1169,95 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "sender_id": m.sender_id,
                 "recipient_id": m.recipient_id,
                 "body": m.body,
+                "image_url": None,
+                "challenge_token": None,
                 "created_at": iso(m.created_at),
             }
         }
+
+    @app.post("/api/messages/{username}/image")
+    async def send_message_image(
+        username: str,
+        request: Request,
+        db: Session = Depends(db_session),
+    ):
+        actor, sess = authenticated(request, db)
+        mutation_guard(request, actor, sess)
+        rate_limit(request, "message_image", 12, f"user:{actor.id}")
+        other = target_user(username, db)
+        lock_user_pair(db, actor.id, other.id)
+        if actor.id == other.id or is_blocked(db, actor.id, other.id):
+            fail(403, "message_forbidden", "Messaging is not allowed.")
+        form = await request.form(max_files=1, max_fields=1)
+        try:
+            image = form.get("image")
+            caption = form.get("caption", "")
+            if not isinstance(image, StarletteUploadFile):
+                fail(422, "invalid_message_image", "An image file is required.")
+            if not isinstance(caption, str):
+                fail(422, "invalid_message_image", "Invalid image caption.")
+            raw = await image.read(5 * 1024 * 1024 + 1)
+            if len(raw) > 5 * 1024 * 1024:
+                fail(422, "invalid_message_image", "Upload must not exceed 5 MB.")
+            encoded = normalized_message_image(raw)
+            clean_caption = clean_text(caption, 0, 2000)
+        except ValueError as exc:
+            fail(422, "invalid_message_image", str(exc))
+        finally:
+            await form.close()
+        media = Media(
+            id=uid(),
+            user_id=actor.id,
+            kind="message",
+            data=encoded,
+            etag=hashlib.sha256(encoded).hexdigest(),
+        )
+        db.add(media)
+        db.flush()
+        message = Message(
+            sender_id=actor.id,
+            recipient_id=other.id,
+            body=clean_caption,
+            media_id=media.id,
+        )
+        db.add(message)
+        db.flush()
+        add_notification(db, other.id, actor.id, "message", "وصلتك صورة في رسالة خاصة", f"/messages/{actor.username}")
+        db.commit()
+        return {
+            "message": {
+                "id": message.id,
+                "sender_id": message.sender_id,
+                "recipient_id": message.recipient_id,
+                "body": message.body,
+                "image_url": f"/api/messages/media/{media.id}",
+                "challenge_token": None,
+                "created_at": iso(message.created_at),
+            }
+        }
+
+    @app.get("/api/messages/media/{media_id}")
+    def message_media(media_id: str, request: Request, db: Session = Depends(db_session)):
+        actor, _ = authenticated(request, db)
+        media = db.get(Media, media_id)
+        if not media or media.kind != "message":
+            raise HTTPException(404, "Media not found")
+        message = db.scalar(
+            select(Message).where(
+                Message.media_id == media_id,
+                or_(Message.sender_id == actor.id, Message.recipient_id == actor.id),
+            ).limit(1)
+        )
+        if not message or is_blocked(db, message.sender_id, message.recipient_id):
+            raise HTTPException(404, "Media not found")
+        headers = {
+            "ETag": f'"{media.etag}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        }
+        if request.headers.get("if-none-match", "").strip('"') == media.etag:
+            return Response(status_code=304, headers=headers)
+        return Response(media.data, media_type="image/webp", headers=headers)
 
     @app.post("/api/messages/{username}/read")
     def read_messages(
@@ -1136,10 +1340,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         challenge_id: str | None = None,
         generated=None,
         started_at=None,
+        challenge_round: int = 1,
     ):
         try:
             target = generated or generate_target(
-                payload.game, payload.difficulty, payload.language, payload.count
+                payload.game,
+                payload.difficulty,
+                payload.language,
+                payload.count,
+                topic=payload.topic,
             )
         except (ValueError, RuntimeError) as exc:
             fail(422, "invalid_round", str(exc))
@@ -1153,6 +1362,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             language=target.language,
             word_count=target.word_count,
             challenge_id=challenge_id,
+            challenge_round=challenge_round,
+            topic=(target.metadata or {}).get("topic", payload.topic),
             started_at=started_at,
         )
         db.add(round_obj)
@@ -1178,7 +1389,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for _ in range(8):
             try:
                 candidate = generate_target(
-                    payload.game, payload.difficulty, payload.language, payload.count
+                    payload.game,
+                    payload.difficulty,
+                    payload.language,
+                    payload.count,
+                    topic=payload.topic,
                 )
             except (ValueError, RuntimeError) as exc:
                 fail(422, "invalid_round", str(exc))
@@ -1198,6 +1413,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "difficulty": r.difficulty,
                 "language": r.language,
                 "word_count": r.word_count,
+                "topic": r.topic,
+                "topic_label": TOPIC_LABELS.get(r.topic, TOPIC_LABELS["mixed"])[
+                    r.language
+                ],
                 "starts_at": None,
                 "challenge_id": None,
             }
@@ -1288,6 +1507,65 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 part = db.get(ChallengeParticipant, (challenge.id, user.id))
                 part.attempt_id = attempt.id
                 part.finished_at = now
+                members = db.scalars(
+                    select(ChallengeParticipant).where(
+                        ChallengeParticipant.challenge_id == challenge.id
+                    )
+                ).all()
+                if members and all(member.finished_at for member in members):
+                    if challenge.current_round < challenge.round_count:
+                        prior_targets = set(
+                            db.scalars(
+                                select(PracticeRound.expected).where(
+                                    PracticeRound.challenge_id == challenge.id
+                                )
+                            ).all()
+                        )
+                        next_target = None
+                        for _ in range(12):
+                            try:
+                                candidate = generate_target(
+                                    challenge.game,
+                                    challenge.difficulty,
+                                    challenge.language,
+                                    challenge.word_count,
+                                    topic=challenge.topic,
+                                )
+                            except (ValueError, RuntimeError) as exc:
+                                fail(422, "invalid_challenge", str(exc))
+                            if candidate.target not in prior_targets:
+                                next_target = candidate
+                                break
+                        if next_target is None:
+                            next_target = candidate
+                        challenge.current_round += 1
+                        next_start = now + timedelta(seconds=3)
+                        challenge.target = next_target.target
+                        challenge.display = next_target.display
+                        challenge.word_count = next_target.word_count
+                        challenge.starts_at = next_start
+                        challenge.deadline_at = next_start + timedelta(seconds=180)
+                        next_payload = RoundInput(
+                            game=challenge.game,
+                            difficulty=challenge.difficulty,
+                            language=challenge.language,
+                            count=challenge.word_count,
+                            topic=challenge.topic,
+                        )
+                        for member in members:
+                            member.finished_at = None
+                            next_round = new_round(
+                                db.get(User, member.user_id),
+                                next_payload,
+                                db,
+                                challenge.id,
+                                next_target,
+                                next_start,
+                                challenge.current_round,
+                            )
+                            member.round_id = next_round.id
+                    else:
+                        challenge.status = "complete"
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -1373,14 +1651,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/challenges")
     def challenges(request: Request, db: Session = Depends(db_session)):
         user, _ = authenticated(request, db)
+        now = utcnow()
+        recent = now - timedelta(days=7)
         rows = db.scalars(
             select(Challenge)
             .where(
                 Challenge.visibility == "public",
-                Challenge.status == "lobby",
-                Challenge.expires_at > utcnow(),
+                or_(
+                    and_(Challenge.status == "lobby", Challenge.expires_at > now),
+                    and_(
+                        Challenge.status == "active",
+                        or_(
+                            Challenge.deadline_at > now,
+                            Challenge.created_at >= recent,
+                        ),
+                    ),
+                    and_(Challenge.status == "complete", Challenge.created_at >= recent),
+                ),
             )
-            .order_by(desc(Challenge.created_at))
+            .order_by(
+                desc(Challenge.event_kind == "friday"),
+                desc(Challenge.status == "lobby"),
+                Challenge.scheduled_at,
+                desc(Challenge.created_at),
+            )
             .limit(50)
         ).all()
         return {"challenges": [challenge_payload(db, c, user) for c in rows]}
@@ -1405,7 +1699,47 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "invalid_challenge",
                 "Repeat challenges require count; other games do not use count.",
             )
+        if payload.topic not in {"mixed", *TOPICS}:
+            fail(422, "invalid_challenge", "Unsupported text topic.")
+        if payload.judge_mode not in {"points", "speed", "accuracy", "fewest_errors"}:
+            fail(422, "invalid_challenge", "Unsupported judge mode.")
+        if payload.event_kind not in {"challenge", "friday"}:
+            fail(422, "invalid_challenge", "Unsupported event type.")
+        if payload.event_kind == "friday" and (
+            payload.visibility != "public" or payload.round_count < 2
+        ):
+            fail(
+                422,
+                "invalid_challenge",
+                "Friday events must be public and have at least two rounds.",
+            )
+        opponent = None
+        if payload.opponent_username:
+            if payload.visibility != "private" or payload.event_kind != "challenge":
+                fail(422, "invalid_challenge", "Direct challenges must be private regular challenges.")
+            if payload.max_players != 2:
+                fail(422, "invalid_challenge", "A direct challenge has exactly two players.")
+            opponent = target_user(payload.opponent_username, db)
+            lock_user_pair(db, user.id, opponent.id)
+            existing_thread = db.scalar(
+                select(Message.id)
+                .where(
+                    or_(
+                        and_(Message.sender_id == user.id, Message.recipient_id == opponent.id),
+                        and_(Message.sender_id == opponent.id, Message.recipient_id == user.id),
+                    )
+                )
+                .limit(1)
+            )
+            if opponent.id == user.id or not existing_thread or is_blocked(db, user.id, opponent.id):
+                fail(403, "challenge_forbidden", "Direct challenges require an open private conversation.")
         now = utcnow()
+        scheduled_at = next_friday_start(now) if payload.event_kind == "friday" else None
+        expires_at = (
+            scheduled_at + timedelta(hours=4)
+            if scheduled_at
+            else now + timedelta(hours=24)
+        )
         token = opaque_token()
         c = Challenge(
             id=uid(),
@@ -1416,16 +1750,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             difficulty=payload.difficulty,
             language=payload.language,
             word_count=payload.count,
+            topic=payload.topic,
             max_players=payload.max_players,
+            round_count=payload.round_count,
+            current_round=0,
+            judge_mode=payload.judge_mode,
+            event_kind=payload.event_kind,
+            scheduled_at=scheduled_at,
             status="lobby",
             target="",
             display="",
             created_at=now,
-            expires_at=now + timedelta(hours=24),
+            expires_at=expires_at,
         )
         db.add(c)
         db.flush()
         db.add(ChallengeParticipant(challenge_id=c.id, user_id=user.id))
+        if opponent:
+            db.add(ChallengeParticipant(challenge_id=c.id, user_id=opponent.id))
+            db.add(
+                Message(
+                    sender_id=user.id,
+                    recipient_id=opponent.id,
+                    body="دعوة لتحدي كتابة",
+                    challenge_token=token,
+                )
+            )
+            add_notification(
+                db,
+                opponent.id,
+                user.id,
+                "challenge",
+                "وصلتك دعوة لتحدي كتابة",
+                f"/?challenge={token}",
+            )
         db.commit()
         return {"challenge": challenge_payload(db, c, user, token)}
 
@@ -1477,6 +1835,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             db.commit()
         if c.status != "lobby":
             fail(409, "challenge_closed", "Challenge cannot be started.")
+        if c.scheduled_at and utcnow() < aware(c.scheduled_at):
+            fail(409, "event_not_started", "The Friday event has not started yet.")
         members = db.scalars(
             select(ChallengeParticipant).where(
                 ChallengeParticipant.challenge_id == c.id
@@ -1485,11 +1845,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if len(members) < 2:
             fail(409, "not_enough_players", "At least two players are required.")
         try:
-            gen = generate_target(c.game, c.difficulty, c.language, c.word_count)
+            gen = generate_target(
+                c.game,
+                c.difficulty,
+                c.language,
+                c.word_count,
+                topic=c.topic,
+            )
         except (ValueError, RuntimeError) as exc:
             fail(422, "invalid_challenge", str(exc))
         start = utcnow() + timedelta(seconds=3)
         c.target, c.display = gen.target, gen.display
+        c.current_round = 1
         c.word_count, c.starts_at, c.deadline_at, c.status = (
             gen.word_count,
             start,
@@ -1502,8 +1869,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 difficulty=c.difficulty,
                 language=c.language,
                 count=c.word_count,
+                topic=c.topic,
             )
-            r = new_round(db.get(User, part.user_id), p, db, c.id, gen, start)
+            r = new_round(
+                db.get(User, part.user_id),
+                p,
+                db,
+                c.id,
+                gen,
+                start,
+                c.current_round,
+            )
             part.round_id = r.id
         db.commit()
         return {"challenge": challenge_payload(db, c, user, token)}

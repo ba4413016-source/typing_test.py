@@ -114,6 +114,8 @@ class Message(Base):
         ForeignKey("mt_users.id", ondelete="CASCADE"), index=True
     )
     body: Mapped[str] = mapped_column(Text)
+    media_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    challenge_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
@@ -155,7 +157,21 @@ class Challenge(Base):
     difficulty: Mapped[str] = mapped_column(String(12))
     language: Mapped[str] = mapped_column(String(2))
     word_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    topic: Mapped[str] = mapped_column(
+        String(24), default="mixed", server_default="mixed"
+    )
     max_players: Mapped[int] = mapped_column(Integer, default=8)
+    round_count: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    current_round: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    judge_mode: Mapped[str] = mapped_column(
+        String(16), default="points", server_default="points"
+    )
+    event_kind: Mapped[str] = mapped_column(
+        String(16), default="challenge", server_default="challenge"
+    )
+    scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(12), default="lobby")
     target: Mapped[str] = mapped_column(Text, default="")
     display: Mapped[str] = mapped_column(Text, default="")
@@ -185,6 +201,12 @@ class PracticeRound(Base):
     word_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     challenge_id: Mapped[str | None] = mapped_column(
         ForeignKey("mt_challenges.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    challenge_round: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1"
+    )
+    topic: Mapped[str] = mapped_column(
+        String(24), default="mixed", server_default="mixed"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow

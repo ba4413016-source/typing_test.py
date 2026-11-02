@@ -396,6 +396,173 @@ _TEXT_PARTS = {
 }
 
 
+# Curated topic contexts complement the large wordfreq corpus. Each topic is a
+# prompt lens, not a claim that generated passages are sourced encyclopedia facts.
+_TOPIC_PARTS = {
+    "science": {
+        "en": (
+            ("In a science notebook", "During a lab discussion"),
+            ("the class explores “{word}” through a simple model", "a learner connects “{word}” with an observation"),
+            ("They compare evidence before writing a conclusion.", "A careful question guides the next experiment."),
+        ),
+        "ar": (
+            ("في دفتر العلوم", "خلال نقاش في المختبر"),
+            ("تستكشف المجموعة «{word}» عبر نموذج مبسط", "يربط أحد المتعلمين «{word}» بملاحظة"),
+            ("ويقارنون الأدلة قبل تدوين الاستنتاج.", "ويقود سؤال دقيق التجربة التالية."),
+        ),
+    },
+    "nature": {
+        "en": (
+            ("Along a shaded nature trail", "Beside a field journal"),
+            ("the guide records “{word}” beside a local species", "the group observes how “{word}” appears in the landscape"),
+            ("They leave the habitat undisturbed and note what they saw.", "A quiet observation reveals details missed in a hurry."),
+        ),
+        "ar": (
+            ("على درب تحجبه الأشجار", "بجوار دفتر ميداني"),
+            ("يسجل الدليل «{word}» بجوار نوع من الكائنات", "تلاحظ المجموعة حضور «{word}» في المشهد الطبيعي"),
+            ("ويتركون الموطن هادئًا ويدونون ما شاهدوه.", "وتكشف الملاحظة الهادئة تفاصيل قد تفوت على المستعجل."),
+        ),
+    },
+    "technology": {
+        "en": (
+            ("At a small design studio", "During a technology workshop"),
+            ("the team tests “{word}” in a clear interface", "a designer checks whether “{word}” helps a tool feel easier to use"),
+            ("They improve one detail, then test it with care.", "A useful tool should make the next step easier to understand."),
+        ),
+        "ar": (
+            ("في استوديو تصميم صغير", "خلال ورشة تقنية"),
+            ("يختبر الفريق «{word}» في واجهة واضحة", "يتأكد المصمم من أن «{word}» يسهل استخدام الأداة"),
+            ("ويحسنون تفصيلًا واحدًا ثم يختبرونه بعناية.", "ينبغي للأداة المفيدة أن توضح الخطوة التالية."),
+        ),
+    },
+    "history": {
+        "en": (
+            ("In a local history archive", "While reading an old travel diary"),
+            ("the researcher places “{word}” beside a dated record", "the class compares “{word}” with a map from another era"),
+            ("Different sources help separate memory from evidence.", "A small detail can change how a familiar story is understood."),
+        ),
+        "ar": (
+            ("في أرشيف للتاريخ المحلي", "أثناء قراءة يوميات سفر قديمة"),
+            ("يضع الباحث «{word}» بجوار سجل مؤرخ", "تقارن المجموعة «{word}» بخريطة من زمن آخر"),
+            ("وتساعد المصادر المتنوعة على التمييز بين الذاكرة والدليل.", "وقد يغير تفصيل صغير فهم حكاية مألوفة."),
+        ),
+    },
+    "space": {
+        "en": (
+            ("Beneath a planetarium ceiling", "During an evening sky watch"),
+            ("the students mark “{word}” beside a plotted orbit", "the guide uses “{word}” to explain a model of the night sky"),
+            ("A patient observer can notice patterns across many nights.", "The model is a starting point for asking better questions."),
+        ),
+        "ar": (
+            ("تحت قبة فلكية", "خلال رصد مسائي للسماء"),
+            ("يضع الطلاب «{word}» بجوار مدار مرسوم", "يستخدم الدليل «{word}» لشرح نموذج للسماء الليلية"),
+            ("ويلاحظ الراصد الصبور أنماطًا تتكرر عبر ليالٍ عديدة.", "ويصبح النموذج بداية لأسئلة أكثر دقة."),
+        ),
+    },
+    "health": {
+        "en": (
+            ("At a community wellness class", "In a clinic learning room"),
+            ("the instructor explains “{word}” with a calm example", "the group adds “{word}” to a simple daily routine"),
+            ("Small steady habits are easier to keep than sudden changes.", "Reliable guidance helps people make informed choices."),
+        ),
+        "ar": (
+            ("في درس للصحة المجتمعية", "في غرفة تعليم داخل عيادة"),
+            ("يشرح المدرب «{word}» بمثال هادئ", "تضيف المجموعة «{word}» إلى روتين يومي بسيط"),
+            ("وتسهل المحافظة على العادات الصغيرة المنتظمة.", "وتساعد الإرشادات الموثوقة على اتخاذ قرارات واعية."),
+        ),
+    },
+    "travel": {
+        "en": (
+            ("At a quiet railway platform", "Beside a well-worn city map"),
+            ("the traveler writes “{word}” beside the next stop", "the friends use “{word}” to choose a slower route"),
+            ("A thoughtful plan leaves room for an unexpected discovery.", "The journey feels lighter when every landmark has a story."),
+        ),
+        "ar": (
+            ("على رصيف محطة هادئ", "بجوار خريطة مدينة كثيرة الاستخدام"),
+            ("يكتب المسافر «{word}» بجوار المحطة التالية", "يستخدم الأصدقاء «{word}» لاختيار طريق أكثر هدوءًا"),
+            ("وتترك الخطة المتأنية مجالًا لاكتشاف غير متوقع.", "وتصبح الرحلة ألطف حين تحمل المعالم حكايات."),
+        ),
+    },
+    "arts": {
+        "en": (
+            ("In a bright community art room", "Before the gallery doors open"),
+            ("the artist sketches “{word}” beside a color study", "the group gives “{word}” a new rhythm in a short scene"),
+            ("A different point of view can transform a familiar shape.", "The finished work invites each visitor to notice something new."),
+        ),
+        "ar": (
+            ("في مرسم مجتمعي مضيء", "قبل فتح أبواب المعرض"),
+            ("ترسم الفنانة «{word}» بجوار لوحة للألوان", "تمنح المجموعة «{word}» إيقاعًا جديدًا في مشهد قصير"),
+            ("وقد تحول زاوية نظر مختلفة شكلًا مألوفًا.", "ويدعو العمل المكتمل كل زائر إلى ملاحظة شيء جديد."),
+        ),
+    },
+    "sports": {
+        "en": (
+            ("On a neighborhood court", "During a friendly team practice"),
+            ("the coach links “{word}” with a passing drill", "the players use “{word}” as a cue to reset their positions"),
+            ("Good teamwork depends on practice, patience, and clear signals.", "A fair match gives every player room to improve."),
+        ),
+        "ar": (
+            ("في ملعب الحي", "خلال تدريب ودي للفريق"),
+            ("يربط المدرب «{word}» بتمرين للتمرير", "يستخدم اللاعبون «{word}» إشارة لإعادة ترتيب مواقعهم"),
+            ("ويعتمد العمل الجماعي على التدريب والصبر والإشارات الواضحة.", "وتمنح المباراة المنصفة كل لاعب فرصة للتطور."),
+        ),
+    },
+    "education": {
+        "en": (
+            ("At the start of a study group", "Beside a well-used classroom board"),
+            ("the tutor explains “{word}” with a fresh example", "the learners practice “{word}” before trying a harder question"),
+            ("A short review makes the next lesson easier to follow.", "Different examples help ideas stay clear after class."),
+        ),
+        "ar": (
+            ("في بداية مجموعة دراسية", "بجوار لوح صفي كثير الاستخدام"),
+            ("يشرح المدرس «{word}» بمثال جديد", "يتدرب المتعلمون على «{word}» قبل سؤال أصعب"),
+            ("وتجعل المراجعة القصيرة الدرس التالي أسهل متابعة.", "وتساعد الأمثلة المتنوعة على وضوح الفكرة بعد الحصة."),
+        ),
+    },
+    "culture": {
+        "en": (
+            ("At a neighborhood cultural gathering", "While preparing a shared heritage display"),
+            ("a storyteller connects “{word}” with a family custom", "the group records “{word}” beside a local expression"),
+            ("Listening carefully helps traditions travel between generations.", "A shared story can hold different meanings for each listener."),
+        ),
+        "ar": (
+            ("في لقاء ثقافي لأهل الحي", "أثناء إعداد عرض للتراث المشترك"),
+            ("يربط الراوي «{word}» بعادة عائلية", "تسجل المجموعة «{word}» بجوار تعبير محلي"),
+            ("ويساعد الإصغاء على انتقال العادات بين الأجيال.", "وقد تحمل الحكاية المشتركة معاني مختلفة لكل مستمع."),
+        ),
+    },
+    "food": {
+        "en": (
+            ("In a family recipe notebook", "At a lively neighborhood market"),
+            ("the cook notes “{word}” beside a seasonal ingredient", "the team compares “{word}” across two traditional recipes"),
+            ("Careful preparation lets simple ingredients shine.", "A shared meal brings people together around the table."),
+        ),
+        "ar": (
+            ("في دفتر وصفات عائلي", "في سوق حيّ نابض بالحركة"),
+            ("تكتب الطاهية «{word}» بجوار مكوّن موسمي", "يقارن الفريق «{word}» بين وصفتين تقليديتين"),
+            ("ويبرز التحضير المتأني طعم المكونات البسيطة.", "وتجمع الوجبة المشتركة الناس حول المائدة."),
+        ),
+    },
+}
+
+TOPICS = tuple(_TOPIC_PARTS)
+TOPIC_LABELS = {
+    "mixed": {"ar": "متنوع", "en": "Mixed"},
+    "science": {"ar": "العلوم", "en": "Science"},
+    "nature": {"ar": "الطبيعة", "en": "Nature"},
+    "technology": {"ar": "التقنية", "en": "Technology"},
+    "history": {"ar": "التاريخ", "en": "History"},
+    "space": {"ar": "الفضاء", "en": "Space"},
+    "health": {"ar": "الصحة", "en": "Health"},
+    "travel": {"ar": "السفر", "en": "Travel"},
+    "arts": {"ar": "الفنون", "en": "Arts"},
+    "sports": {"ar": "الرياضة", "en": "Sports"},
+    "education": {"ar": "التعليم", "en": "Education"},
+    "culture": {"ar": "الثقافة", "en": "Culture"},
+    "food": {"ar": "الطعام", "en": "Food"},
+}
+
+
 @lru_cache(maxsize=2)
 def _corpus_words(language: str) -> tuple[str, ...]:
     """Return clean, distinct words sourced from wordfreq's language corpus."""
@@ -453,8 +620,14 @@ def _pick_words(
     return rng.sample(words, count)
 
 
-def _make_text(game: str, language: str, difficulty: str, rng: Any) -> str:
-    scenes, actions, endings = _TEXT_PARTS[language][game]
+def _make_text(
+    game: str, language: str, difficulty: str, rng: Any, topic: str
+) -> str:
+    base_scenes, base_actions, base_endings = _TEXT_PARTS[language][game]
+    topic_scenes, topic_actions, topic_endings = _TOPIC_PARTS[topic][language]
+    scenes = topic_scenes + base_scenes
+    actions = topic_actions + base_actions
+    endings = topic_endings + base_endings
     desired = _LEVEL_LENGTHS[difficulty]
     parts: list[str] = []
     length = 0
@@ -462,8 +635,9 @@ def _make_text(game: str, language: str, difficulty: str, rng: Any) -> str:
     # The modest overshoot keeps grammar intact while staying far below 600 chars.
     for _ in range(8):
         word = rng.choice(_pick_words(language, 1, rng))
+        scene_pool = topic_scenes if not parts and topic_scenes else scenes
         sentence = (
-            f"{rng.choice(scenes)}, {rng.choice(actions).format(word=word)}. "
+            f"{rng.choice(scene_pool)}, {rng.choice(actions).format(word=word)}. "
             f"{rng.choice(endings)}"
         )
         sentence = sentence.rstrip(".؟?! ") + "."
@@ -474,13 +648,21 @@ def _make_text(game: str, language: str, difficulty: str, rng: Any) -> str:
         if length >= desired:
             break
     text = " ".join(parts)
+    if game == "news":
+        # Keep the disclaimer even when a topic-specific ending was selected.
+        text = f"{text} {rng.choice(base_endings)}"
     if len(text) > 600:
         raise RuntimeError("Generated text exceeded the safety limit")
     return text
 
 
 def generate_target(
-    game: str, difficulty: str, language: str, count: int | None = None, rng: Any = None
+    game: str,
+    difficulty: str,
+    language: str,
+    count: int | None = None,
+    rng: Any = None,
+    topic: str | None = None,
 ) -> GeneratedTarget:
     """Generate one target on demand.
 
@@ -499,6 +681,8 @@ def generate_target(
         getattr(chooser, "sample", None)
     ):
         raise ValueError("rng must provide choice() and sample()")
+    if topic is not None and topic not in {"mixed", *TOPICS}:
+        raise ValueError("topic must be mixed or a supported topic")
 
     if game == "repeat":
         if (
@@ -520,12 +704,15 @@ def generate_target(
             difficulty,
             language,
             count,
-            {"synthetic": True, "repetitions_per_word": 3},
+            {"synthetic": True, "repetitions_per_word": 3, "topic": "mixed"},
         )
 
     if count is not None:
         raise ValueError("count is only valid for repeat rounds")
-    target = _make_text(game, language, difficulty, chooser)
+    selected_topic = (
+        chooser.choice(TOPICS) if topic in (None, "mixed") else topic
+    )
+    target = _make_text(game, language, difficulty, chooser, selected_topic)
     return GeneratedTarget(
         target,
         target,
@@ -533,7 +720,12 @@ def generate_target(
         difficulty,
         language,
         None,
-        {"synthetic": True, "factual_news": False if game == "news" else None},
+        {
+            "synthetic": True,
+            "factual_news": False if game == "news" else None,
+            "topic": selected_topic,
+            "topic_label": TOPIC_LABELS[selected_topic][language],
+        },
     )
 
 

@@ -9,7 +9,8 @@ const esc = (v = "") =>
   );
 const storedLang = localPref("lang", "ar"),
   storedTheme = localPref("theme", "dark"),
-  storedAccent = localPref("accent", "violet");
+  storedAccent = localPref("accent", "violet"),
+  storedKeySound = localPref("key-sound", "off");
 const state = {
   user: null,
   csrf: null,
@@ -33,7 +34,10 @@ const state = {
   challengeTimer: null,
   challengeAbort: null,
   challengeRoundSubmitted: false,
+  challengeSubmittedRound: 0,
   challengeOffset: 0,
+  soundEnabled: storedKeySound === "on",
+  audioContext: null,
   botMode: "idle",
   stopAfterCurrent: false,
   flow: {},
@@ -84,6 +88,21 @@ const labels = {
     medium: ["متوسط", "Medium"],
     hard: ["صعب", "Hard"],
   },
+  topics: {
+    mixed: ["متنوع تلقائيًا", "Auto-mixed"],
+    science: ["العلوم", "Science"],
+    nature: ["الطبيعة", "Nature"],
+    technology: ["التقنية", "Technology"],
+    history: ["التاريخ", "History"],
+    space: ["الفضاء", "Space"],
+    health: ["الصحة", "Health"],
+    travel: ["السفر", "Travel"],
+    arts: ["الفنون", "Arts"],
+    sports: ["الرياضة", "Sports"],
+    education: ["التعليم", "Education"],
+    culture: ["الثقافة", "Culture"],
+    food: ["الطعام", "Food"],
+  },
 };
 function toast(text) {
   const el = $("toast");
@@ -105,6 +124,17 @@ function setLanguage() {
   $("authLanguage").textContent = state.lang === "ar" ? "English" : "العربية";
   $("exitBotButton").setAttribute("aria-label", tr("العودة إلى التطبيق", "Back to app"));
   $("exitBotButton").title = tr("العودة إلى التطبيق", "Back to app");
+  $("chatChallengeLabel").textContent = tr("تحدٍّ", "Challenge");
+  $("directChallengeButton").setAttribute("aria-label", tr("تحدَّ هذا المستخدم", "Challenge this user"));
+  $("directChallengeButton").title = tr("تحدَّ هذا المستخدم", "Challenge this user");
+  $("messageImageButton").setAttribute("aria-label", tr("إرفاق صورة", "Attach image"));
+  $("messageImageButton").title = tr("إرفاق صورة", "Attach image");
+  $("speakRoundButton").textContent = tr("استمع للنص", "Listen");
+  $("botInput").setAttribute("aria-label", tr("اكتب أمرًا أو إجابة التدريب", "Type a command or practice answer"));
+  $("botInput").placeholder = tr("اكتب أمرًا أو إجابة…", "Type a command or answer…");
+  $("messageInput").setAttribute("aria-label", tr("رسالة خاصة", "Private message"));
+  $("messageInput").placeholder = tr("اكتب رسالة…", "Write a message…");
+  updateSoundButton();
   document
     .querySelectorAll("[data-nav]")
     .forEach(
@@ -123,11 +153,11 @@ function syncViewport() {
     requestAnimationFrame(() => {
       scheduled = false;
       const vv = window.visualViewport;
-      if (vv && Math.abs(vv.scale - 1) > 0.01) return;
-      const h = vv?.height || window.innerHeight;
-      const top = vv?.offsetTop || 0;
+      const unzoomed = !vv || Math.abs(vv.scale - 1) <= 0.01;
+      // Keep pinch zoom fully available; do not size the app to the zoomed sub-viewport.
+      const h = unzoomed ? vv?.height || window.innerHeight : window.innerHeight;
       document.documentElement.style.setProperty("--app-height", `${h}px`);
-      document.documentElement.style.setProperty("--app-top", `${top}px`);
+      document.documentElement.style.setProperty("--app-top", "0px");
     });
   };
   window.addEventListener("resize", update, { passive: true });
@@ -422,7 +452,19 @@ function renderHome() {
   if (!state.user) return;
   const s = state.user.stats || {};
   const host = $("page-home");
-  host.innerHTML = `<header class="page-header"><div><p class="eyebrow">mr.typing</p><h1>${tr("أهلًا، ", "Welcome, ")}${who(state.user)}</h1><p class="muted">${tr("كل جولة تقرّبك من كتابة أسرع وأدق.", "Every round brings faster, more accurate typing.")}</p></div></header><section class="hero"><div class="hero-copy"><p class="eyebrow">${tr("مساحة تدريبك", "Your practice space")}</p><h2>${tr("اكتب بثقة. وتقدّم على طريقتك.", "Type with confidence. Improve at your pace.")}</h2><p>${tr("ابدأ جولة مع رفيقك، ثم تابع تقدمك وتحدَّ أصدقاءك.", "Start a round with your companion, track progress and challenge friends.")}</p></div><div class="hero-actions"><button class="primary-button" type="button" data-action="go-bot">${tr("ابدأ التدريب", "Start practicing")}</button><button class="secondary-button" type="button" data-action="go-community">${tr("استكشف المجتمع", "Explore community")}</button></div></section><section class="stat-grid">${statCard(tr("الجولات", "Rounds"), s.rounds || 0)}${statCard(tr("مجموع النقاط", "Total points"), s.total_points || 0)}${statCard(tr("أفضل سرعة", "Best speed"), `${s.best_wpm || 0} WPM`)}${statCard(tr("الدقة", "Accuracy"), `${s.accuracy || 0}%`)}</section><section class="section-gap"><div class="section-heading"><div><p class="eyebrow">${tr("ابدأ من هنا", "Start here")}</p><h2>${tr("اختر خطوتك التالية", "Choose your next step")}</h2></div></div><div class="card-grid"><button class="action-card" data-action="go-bot"><strong>${tr("تدريب مستمر", "Continuous practice")}</strong><span class="muted">${tr("اختر اللعبة والمستوى وتدرّب دون توقف.", "Choose a game and keep practicing.")}</span></button><button class="action-card" data-action="go-community"><strong>${tr("تحدَّ أصدقاءك", "Challenge friends")}</strong><span class="muted">${tr("أنشئ تحديًا أو انضم إلى ردهة عامة.", "Create or join a challenge.")}</span></button><button class="action-card" data-action="go-messages"><strong>${tr("رسائلك", "Your messages")}</strong><span class="muted">${tr("تواصل مع المتابعين والأصدقاء.", "Connect with people you follow.")}</span></button></div></section>`;
+  host.innerHTML = `<header class="page-header"><div><p class="eyebrow">mr.typing</p><h1>${tr("أهلًا، ", "Welcome, ")}${who(state.user)}</h1><p class="muted">${tr("كل جولة تقرّبك من كتابة أسرع وأدق.", "Every round brings faster, more accurate typing.")}</p></div></header><section class="hero"><div class="hero-copy"><p class="eyebrow">${tr("مساحة تدريبك", "Your practice space")}</p><h2>${tr("اكتب بثقة. وتقدّم على طريقتك.", "Type with confidence. Improve at your pace.")}</h2><p>${tr("ابدأ جولة مع رفيقك، ثم تابع تقدمك وتحدَّ أصدقاءك.", "Start a round with your companion, track progress and challenge friends.")}</p></div><div class="hero-actions"><button class="primary-button" type="button" data-action="go-bot">${tr("ابدأ التدريب", "Start practicing")}</button><button class="secondary-button" type="button" data-action="go-community">${tr("استكشف المجتمع", "Explore community")}</button></div></section><section class="stat-grid">${statCard(tr("الجولات", "Rounds"), s.rounds || 0)}${statCard(tr("مجموع النقاط", "Total points"), s.total_points || 0)}${statCard(tr("أفضل سرعة", "Best speed"), `${s.best_wpm || 0} WPM`)}${statCard(tr("الدقة", "Accuracy"), `${s.accuracy || 0}%`)}</section><section class="event-hero section-gap"><div><p class="eyebrow">${tr("موعد أسبوعي", "Weekly event")}</p><h2>${tr("فعالية الجمعة", "Friday event")}</h2><p class="muted">${tr("تُجدول الفعالية القادمة للجمعة الساعة 8 مساءً بتوقيت السعودية؛ جولات متعددة وحكم آلي وإحصاءات لكل مشارك.", "Schedule the next event for Friday at 8 PM Saudi time, with multiple rounds, automatic judging, and participant stats.")}</p></div><button class="primary-button" type="button" data-action="create-friday">${tr("جهّز فعالية الجمعة", "Set up Friday event")}</button></section><section class="section-gap"><div class="section-heading"><div><p class="eyebrow">${tr("تحديات فعلية", "Play-ready formats")}</p><h2>${tr("اختر نمط التحدي", "Choose a challenge format")}</h2></div></div><div class="challenge-presets"><button class="action-card" type="button" data-action="create-preset" data-preset="speed"><strong>${tr("سباق السرعة", "Speed sprint")}</strong><span class="muted">${tr("جولتان وحكم السرعة.", "Two rounds judged by speed.")}</span></button><button class="action-card" type="button" data-action="create-preset" data-preset="accuracy"><strong>${tr("كأس الدقة", "Accuracy cup")}</strong><span class="muted">${tr("ثلاث جولات؛ الدقة أولًا.", "Three rounds; accuracy first.")}</span></button><button class="action-card" type="button" data-action="create-preset" data-preset="marathon"><strong>${tr("ماراثون بلا أخطاء", "Few-error marathon")}</strong><span class="muted">${tr("خمس جولات وحكم الأخطاء الأقل.", "Five rounds judged by fewest errors.")}</span></button></div></section><section class="section-gap"><div class="section-heading"><div><p class="eyebrow">${tr("من المجتمع", "From the community")}</p><h2>${tr("الفعاليات والتحديات القادمة", "Upcoming events and challenges")}</h2></div><button class="secondary-button" type="button" data-action="go-community">${tr("عرض المجتمع", "Open community")}</button></div><div id="homeChallengeList" class="challenge-list"><p class="empty-state">${tr("جارٍ تحميل التحديات…", "Loading challenges…")}</p></div></section><section class="section-gap"><div class="section-heading"><div><p class="eyebrow">${tr("ابدأ من هنا", "Start here")}</p><h2>${tr("اختر خطوتك التالية", "Choose your next step")}</h2></div></div><div class="card-grid"><button class="action-card" data-action="go-bot"><strong>${tr("تدريب مستمر", "Continuous practice")}</strong><span class="muted">${tr("اختر اللعبة والمستوى وتدرّب دون توقف.", "Choose a game and keep practicing.")}</span></button><button class="action-card" data-action="go-community"><strong>${tr("تحدَّ أصدقاءك", "Challenge friends")}</strong><span class="muted">${tr("أنشئ تحديًا أو انضم إلى فعالية عامة.", "Create or join a challenge.")}</span></button><button class="action-card" data-action="go-messages"><strong>${tr("رسائلك", "Your messages")}</strong><span class="muted">${tr("تواصل مع المتابعين والأصدقاء.", "Connect with people you follow.")}</span></button></div></section>`;
+  loadHomeChallenges();
+}
+async function loadHomeChallenges() {
+  const host = $("homeChallengeList");
+  if (!host || !state.user) return;
+  try {
+    const data = await api("/api/challenges");
+    const cards = (data.challenges || []).slice(0, 4).map((c) => challengeCard(c, false)).join("");
+    host.innerHTML = cards || `<p class="empty-state">${tr("لا توجد فعاليات عامة بعد؛ أنشئ فعالية أو تحديًا من الأزرار أعلاه.", "No public events yet. Set one up with the buttons above.")}</p>`;
+  } catch (error) {
+    if (error.status !== 401) host.innerHTML = `<p class="form-error">${esc(errorText(error))}</p>`;
+  }
 }
 function clearRoundTimers() {
   clearInterval(state.elapsedTimer);
@@ -449,8 +491,23 @@ function clearRuntime() {
   state.challengeAbort?.abort();
   state.challenge = null;
   state.challengeToken = null;
+  state.threads = [];
   state.activeThread = null;
+  state.messageAfter = 0;
   state.botMode = "idle";
+  $("threadList").replaceChildren();
+  $("messageLog").replaceChildren();
+  $("messageInput").value = "";
+  $("messageInput").style.height = "";
+  $("conversationPanel").hidden = true;
+  $("conversationEmpty").hidden = false;
+  $("page-messages").classList.remove("conversation-open");
+  $("page-community").replaceChildren();
+  $("botLog").replaceChildren();
+  $("botInput").value = "";
+  $("roundPanel").hidden = true;
+  document.body.classList.remove("round-active");
+  $("appScreen").classList.remove("dm-open");
 }
 function botPrompt() {
   if (state.botMode === "idle")
@@ -506,11 +563,28 @@ function findLevel(tokens) {
   const index = tokens.findIndex((token) => aliases[token]);
   return index < 0 ? null : { level: aliases[tokens[index]], index };
 }
+const topicAliases = {
+  مختلط: "mixed", متنوع: "mixed", mixed: "mixed",
+  علوم: "science", science: "science", طبيعة: "nature", الطبيعة: "nature", nature: "nature",
+  تقنية: "technology", التقنية: "technology", technology: "technology",
+  تاريخ: "history", التاريخ: "history", history: "history",
+  فضاء: "space", الفضاء: "space", space: "space",
+  صحة: "health", الصحة: "health", health: "health",
+  سفر: "travel", السفر: "travel", travel: "travel",
+  فنون: "arts", arts: "arts", رياضة: "sports", الرياضة: "sports", sports: "sports",
+  تعليم: "education", التعليم: "education", education: "education",
+  ثقافة: "culture", الثقافة: "culture", culture: "culture",
+  طعام: "food", الطعام: "food", food: "food",
+};
+function findTopic(tokens) {
+  const index = tokens.findIndex((token) => topicAliases[token]);
+  return index < 0 ? null : { topic: topicAliases[tokens[index]], index };
+}
 function showBotHelp() {
   appendBot(
     tr(
-      "اكتب اللعبة والمستوى مباشرة، مثل «جمل متوسط» أو «تكرار متوسط ٥». الأوامر: وقف، إحصائيات، مساعدة، إعدادات. الألعاب: جمل، قصة، أخبار، تكرار؛ والمستويات: سهل، متوسط، صعب.",
-      "Type a game and level, e.g. “sentences medium” or “repeat medium 5”. Commands: stop, stats, help, settings. Games: sentences, stories, news, repeat; levels: easy, medium, hard.",
+      "اكتب اللعبة والمستوى والموضوع، مثل «جمل متوسط علوم» أو «تكرار متوسط ٥». الموضوعات: علوم، طبيعة، تقنية، تاريخ، فضاء، صحة، سفر، فنون، رياضة، تعليم، ثقافة، طعام، أو متنوع تلقائيًا. الأوامر: وقف، إحصائيات، مساعدة، إعدادات.",
+      "Type a game, level and topic, e.g. “sentences medium science” or “repeat medium 5”. Topics include science, nature, technology, history, space, health, travel, arts, sports, education, culture, food, or auto-mixed. Commands: stop, stats, help, settings.",
     ),
   );
 }
@@ -568,6 +642,11 @@ function startKeyListener() {
 function bindKeyboardComposer(id) {
   const input = $(id);
   input.addEventListener("keydown", (event) => {
+    if (id === "botInput" && state.round && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+      const typed = graphemes(input.value, state.round.language);
+      const expected = graphemes(state.round.target || "", state.round.language);
+      playTypingTone(expected[typed.length] === event.key.normalize("NFC"));
+    }
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
     event.preventDefault();
     input.form.requestSubmit();
@@ -575,7 +654,52 @@ function bindKeyboardComposer(id) {
   input.addEventListener("input", () => {
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+    if (id === "botInput" && state.round) renderTargetProgress(input.value);
   });
+}
+function playTypingTone(correct = true) {
+  if (!state.soundEnabled) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  try {
+    const context = state.audioContext || (state.audioContext = new AudioContextClass());
+    if (context.state === "suspended") context.resume().catch(() => {});
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(correct ? 720 : 300, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.026, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.06);
+  } catch {}
+}
+function updateSoundButton() {
+  const button = $("soundToggleButton");
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(state.soundEnabled));
+  button.textContent = state.soundEnabled
+    ? tr("النغمة: مفعّلة", "Key sound: on")
+    : tr("النغمة: صامتة", "Key sound: off");
+}
+function speakRoundText() {
+  if (!state.round) return;
+  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+    toast(tr("ميزة قراءة النص تعتمد على الأصوات المتاحة في جهازك.", "Speech playback depends on voices available on your device."));
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(state.round.target || "");
+  utterance.lang = state.round.language === "ar" ? "ar-SA" : "en-US";
+  utterance.rate = 0.9;
+  const prefix = state.round.language === "ar" ? "ar" : "en";
+  const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith(prefix));
+  if (voice) utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
 }
 bindKeyboardComposer("botInput");
 bindKeyboardComposer("messageInput");
@@ -605,6 +729,8 @@ async function advanceBotFlow(tokens) {
     }
     state.flow.difficulty = selected.level;
     const remaining = tokens.slice(selected.index + 1);
+    const selectedTopic = findTopic(remaining);
+    state.flow.topic = selectedTopic?.topic || "mixed";
     if (state.flow.game === "repeat") {
       state.botMode = "choose-count";
       if (remaining.length) await advanceBotFlow(remaining);
@@ -636,6 +762,7 @@ async function createPracticeRound(count) {
       game: state.flow.game,
       difficulty: state.flow.difficulty,
       language: state.lang,
+      topic: state.flow.topic || "mixed",
     };
     if (body.game === "repeat")
       body.count = Number(count || state.flow.count || 1);
@@ -670,39 +797,69 @@ function renderRound() {
   const r = state.round;
   if (!r) return;
   $("roundPanel").hidden = false;
-  $("targetText").textContent = r.display ?? r.target ?? "";
   $("targetText").classList.toggle("repeat-target", r.game === "repeat");
   $("targetText").dir = r.game === "repeat" ? "ltr" : "auto";
-  $("roundLabel").textContent =
-    `${tr(...(labels.games[r.game] || ["تدريب", "Practice"]))} · ${tr(...(labels.levels[r.difficulty] || ["متوسط", "Medium"]))}`;
-  $("roundCounter").textContent =
-    r.game === "repeat"
+  renderTargetProgress("");
+  const topic = labels.topics[r.topic] || labels.topics.mixed;
+  $("roundLabel").textContent = `${tr(...(labels.games[r.game] || ["تدريب", "Practice"]))} · ${tr(...(labels.levels[r.difficulty] || ["متوسط", "Medium"]))} · ${tr(...topic)}`;
+  $("roundCounter").textContent = r.challenge_id
+    ? tr(`الجولة ${r.round_number || 1}/${r.round_count || 1}`, `Round ${r.round_number || 1}/${r.round_count || 1}`)
+    : r.game === "repeat"
       ? `${r.word_count || state.flow.count || 1} ${tr("كلمة", "word(s)")} · 3×`
       : "";
-  $("roundHint").textContent =
-    r.game === "repeat"
-      ? tr(
-          "اكتب كل كلمة ثلاث مرات بمسافة بين الكلمات، دون الأقواس والرقم.",
-          "Type each word three times, separated by spaces; omit parentheses and the number.",
-        )
-      : tr(
-          "اكتب النص كما يظهر؛ المسافات وعلامات الترقيم محسوبة.",
-          "Type the text as shown; spaces and punctuation count.",
-        );
+  $("roundHint").textContent = r.game === "repeat"
+    ? tr("اكتب كل كلمة ثلاث مرات بمسافة بين الكلمات، دون الأقواس والرقم.", "Type each word three times, separated by spaces; omit parentheses and the number.")
+    : tr("اكتب النص كما يظهر؛ المسافات وعلامات الترقيم محسوبة.", "Type the text as shown; spaces and punctuation count.");
   $("roundState").textContent = tr("بانتظار أول حرف", "Waiting for first key");
   $("liveSpeed").textContent = "0 WPM";
   $("liveAccuracy").textContent = "100%";
+  $("botInput").value = "";
+  $("botInput").style.height = "auto";
   $("botInput").placeholder = tr("اكتب إجابتك…", "Type your answer…");
+  updateSoundButton();
+  window.speechSynthesis?.cancel();
   document.body.classList.add("round-active");
 }
-function graphemes(value) {
+function graphemes(value, language = state.lang) {
   if (typeof Intl.Segmenter === "function") {
     return Array.from(
-      new Intl.Segmenter(state.lang, { granularity: "grapheme" }).segment(value),
+      new Intl.Segmenter(language, { granularity: "grapheme" }).segment(value),
       (part) => part.segment,
     );
   }
   return Array.from(value);
+}
+function renderTargetProgress(typedText = "") {
+  const round = state.round;
+  const host = $("targetText");
+  if (!round || !host) return;
+  host.replaceChildren();
+  if (round.game === "repeat") {
+    host.textContent = round.display || round.target || "";
+    host.setAttribute("aria-label", host.textContent);
+    return;
+  }
+  const expected = graphemes(round.target || "", round.language);
+  const typed = graphemes(typedText || "", round.language);
+  host.setAttribute("aria-label", round.target || "");
+  const fragment = document.createDocumentFragment();
+  expected.forEach((character, index) => {
+    const span = document.createElement("span");
+    span.className = "target-char";
+    span.setAttribute("aria-hidden", "true");
+    if (index < typed.length) span.classList.add(typed[index] === character ? "is-correct" : "is-error");
+    else if (index === typed.length) span.classList.add("is-current");
+    span.textContent = character;
+    fragment.append(span);
+  });
+  typed.slice(expected.length).forEach((character) => {
+    const span = document.createElement("span");
+    span.className = "target-char is-error is-extra";
+    span.setAttribute("aria-hidden", "true");
+    span.textContent = character;
+    fragment.append(span);
+  });
+  host.append(fragment);
 }
 function scoreLiveText(expectedText, typedText) {
   const expected = graphemes((expectedText || "").normalize("NFC"));
@@ -821,13 +978,18 @@ async function submitPractice(text, userMessage) {
     });
     if (token !== state.roundToken) return;
     clearRoundTimers();
+    if (r.challenge_id) {
+      state.challengeSubmittedRound = Number(r.round_number || state.challengeSubmittedRound || 1);
+      state.challengeRoundSubmitted = true;
+    }
     state.round = null;
+    $("roundPanel").hidden = true;
+    document.body.classList.remove("round-active");
     state.started = false;
     state.beginPromise = null;
     state.user.stats = d.stats || d.result.stats || state.user.stats;
     renderResult(d.result, userMessage);
     if (state.challenge && state.challenge.status === "active") {
-      state.challengeRoundSubmitted = true;
       state.botMode = "challenge-wait";
       $("roundPanel").hidden = true;
       appendBot(
@@ -1010,8 +1172,8 @@ $("botForm").addEventListener("submit", handleBotSubmit);
 startKeyListener();
 function renderCommunity() {
   const el = $("page-community");
-  if (!el.innerHTML)
-    el.innerHTML = `<header class="page-header"><div><p class="eyebrow">${tr("تواصل وتحدَّ", "Connect & compete")}</p><h1>${tr("المجتمع", "Community")}</h1><p class="muted">${tr("ابحث عن مستخدمين، تابع الترتيب، أو ابدأ تحديًا.", "Find users, check rankings, or start a challenge.")}</p></div></header><section class="card section-gap"><div class="section-heading"><h2>${tr("ابحث عن مستخدم", "Find a user")}</h2></div><label class="search-field"><span class="muted">@</span><input id="communitySearch" type="search" maxlength="24" autocomplete="off" placeholder="${tr("اسم المستخدم", "Username")}"></label><div id="searchResults" class="list"></div></section><section class="card section-gap"><div class="section-heading"><h2>${tr("لوحة المتصدرين", "Leaderboard")}</h2><div class="segmented"><button type="button" data-sort="points" class="${state.communitySort === "points" ? "active" : ""}">${tr("النقاط", "Points")}</button><button type="button" data-sort="wpm" class="${state.communitySort === "wpm" ? "active" : ""}">${tr("السرعة", "Speed")}</button></div></div><div id="leaderboard" class="list"></div></section><section class="card section-gap"><div class="section-heading"><div><h2>${tr("التحديات", "Challenges")}</h2><p class="muted">${tr("تحديات خاصة بالرابط أو ردهات عامة.", "Private invite links or public lobbies.")}</p></div><button class="primary-button" type="button" data-action="create-challenge">${tr("إنشاء تحدٍّ", "Create challenge")}</button></div><div id="challengePanel"></div></section><div id="challengeInvite"></div>`;
+  if (el.innerHTML) return;
+  el.innerHTML = `<header class="page-header"><div><p class="eyebrow">${tr("تواصل وتحدَّ", "Connect & compete")}</p><h1>${tr("المجتمع", "Community")}</h1><p class="muted">${tr("ابحث عن مستخدمين، تابع الترتيب، وشارك في تحديات بجولات وحكم وإحصاءات واضحة.", "Find users, check rankings, and join multi-round challenges with clear judging and stats.")}</p></div></header><section class="card section-gap"><div class="section-heading"><h2>${tr("ابحث عن مستخدم", "Find a user")}</h2></div><label class="search-field"><span class="muted">@</span><input id="communitySearch" type="search" maxlength="24" autocomplete="off" placeholder="${tr("اسم المستخدم", "Username")}"></label><div id="searchResults" class="list"></div></section><section class="card section-gap"><div class="section-heading"><h2>${tr("لوحة المتصدرين", "Leaderboard")}</h2><div class="segmented"><button type="button" data-sort="points" class="${state.communitySort === "points" ? "active" : ""}">${tr("النقاط", "Points")}</button><button type="button" data-sort="wpm" class="${state.communitySort === "wpm" ? "active" : ""}">${tr("السرعة", "Speed")}</button></div></div><div id="leaderboard" class="list"></div></section><section class="section-gap"><div class="section-heading"><div><p class="eyebrow">${tr("فعاليات أسبوعية", "Weekly events")}</p><h2>${tr("أنماط التحدي", "Challenge formats")}</h2><p class="muted">${tr("كل فعالية لها مضيف، مشاركون، جولات، وحكم آلي قابل للاختيار.", "Every event has a host, participants, rounds, and a selectable automatic judge.")}</p></div><button class="primary-button" type="button" data-action="create-challenge">${tr("إعداد تحدٍّ", "Configure challenge")}</button></div><div class="challenge-presets"><button class="action-card" type="button" data-action="create-preset" data-preset="speed"><strong>${tr("سباق السرعة", "Speed sprint")}</strong><span class="muted">${tr("جولتان · السرعة أولًا", "2 rounds · speed first")}</span></button><button class="action-card" type="button" data-action="create-preset" data-preset="accuracy"><strong>${tr("كأس الدقة", "Accuracy cup")}</strong><span class="muted">${tr("3 جولات · الدقة أولًا", "3 rounds · accuracy first")}</span></button><button class="action-card" type="button" data-action="create-preset" data-preset="marathon"><strong>${tr("ماراثون الأخطاء الأقل", "Few-error marathon")}</strong><span class="muted">${tr("5 جولات · الأخطاء الأقل أولًا", "5 rounds · fewest errors first")}</span></button><button class="action-card event-preset" type="button" data-action="create-friday"><strong>${tr("فعالية الجمعة", "Friday event")}</strong><span class="muted">${tr("جدولة للجمعة القادمة · 8 مساءً السعودية", "Next Friday · 8 PM Saudi time")}</span></button></div><section class="card challenge-list-card"><div class="section-heading"><div><h2>${tr("الفعاليات والتحديات العامة", "Public events and challenges")}</h2><p class="muted">${tr("تظهر هنا الردهة والفعاليات النشطة ونتائج الأسبوع الأخير.", "Open lobbies, active events, and the past week's results appear here.")}</p></div></div><div id="challengePanel"></div></section></section><div id="challengeInvite"></div>`;
 }
 async function loadCommunity() {
   renderCommunity();
@@ -1072,7 +1234,7 @@ async function loadPublicChallenges() {
       .join("");
     host.innerHTML =
       html ||
-      `<p class="empty-state">${tr("لا توجد ردهات عامة مفتوحة الآن.", "No public lobbies are open right now.")}</p>`;
+      `<p class="empty-state">${tr("لا توجد فعاليات أو نتائج عامة حديثة الآن.", "No public events or recent results right now.")}</p>`;
   } catch (e) {
     if (e.status !== 401)
       host.innerHTML = `<p class="form-error">${esc(errorText(e))}</p>`;
@@ -1080,41 +1242,49 @@ async function loadPublicChallenges() {
 }
 function challengeCard(c, detail = true) {
   const me = c.owner?.id === state.user?.id;
-  const mine = (c.participants || []).some(
-    (p) => p.user?.id === state.user?.id,
-  );
-  const member = (c.participants || [])
-    .map(
-      (p) =>
-        `<div class="player-row">${avatar(p.user?.avatar_url, p.user?.display_name)}<span>${who(p.user)}${p.finished ? ` · ${esc(p.result?.wpm || 0)} WPM` : ""}</span></div>`,
-    )
-    .join("");
+  const mine = (c.participants || []).some((p) => p.user?.id === state.user?.id);
+  const member = (c.participants || []).map((p) => {
+    const result = p.result;
+    const summary = result
+      ? `<div class="participant-stats"><span><bdi dir="ltr">${esc(result.wpm)} WPM</bdi></span><span><bdi dir="ltr">${esc(result.accuracy)}%</bdi></span><span>${tr("النقاط", "Points")}: ${esc(result.points)}</span><span>${tr("الأخطاء", "Errors")}: ${esc(result["error_count"])}</span><span>${tr("الجولات", "Rounds")}: ${esc(result.rounds_completed)}/${esc(c.round_count || 1)}</span></div>`
+      : `<small class="muted">${tr("لم يرسل نتيجة بعد", "No result yet")}</small>`;
+    const rounds = (p.round_results || []).map((round) =>
+      `<span class="round-result-chip">${tr("ج", "R")}${esc(round.round)}: <bdi dir="ltr">${esc(round.wpm)} WPM</bdi> · ${esc(round.accuracy)}% · ${tr("أخطاء", "err")}: ${esc(round.error_count)}</span>`,
+    ).join("");
+    return `<div class="challenge-player"><div class="player-row">${avatar(p.user?.avatar_url, p.user?.display_name)}<span class="player-name">${who(p.user)}${p.judge ? ` · ${tr("المضيف", "Host")}` : ""}${p.finished ? ` · ${tr("أنهى الجولة", "round done")}` : ""}</span></div>${summary}${rounds ? `<div class="round-result-list">${rounds}</div>` : ""}</div>`;
+  }).join("");
   const controls = [];
   if (c.status === "lobby" && !mine && c.token)
-    controls.push(
-      `<button class="primary-button" data-action="challenge-join" data-token="${esc(c.token)}">${tr("انضمام", "Join")}</button>`,
-    );
+    controls.push(`<button class="primary-button" data-action="challenge-join" data-token="${esc(c.token)}">${tr("انضمام", "Join")}</button>`);
   if (c.status === "lobby" && me)
-    controls.push(
-      `<button class="primary-button" data-action="challenge-start" data-token="${esc(c.token || state.challengeToken)}" ${c.participants?.length < 2 ? "disabled" : ""}>${tr("ابدأ التحدي", "Start challenge")}</button>`,
-    );
+    controls.push(`<button class="primary-button" data-action="challenge-start" data-token="${esc(c.token || state.challengeToken)}" ${c.participants?.length < 2 ? "disabled" : ""}>${tr("ابدأ التحدي", "Start challenge")}</button>`);
   if (["lobby", "active"].includes(c.status) && me)
-    controls.push(
-      `<button class="danger-button" data-action="challenge-cancel" data-token="${esc(c.token || state.challengeToken)}">${tr("إلغاء التحدي", "Cancel challenge")}</button>`,
-    );
+    controls.push(`<button class="danger-button" data-action="challenge-cancel" data-token="${esc(c.token || state.challengeToken)}">${tr("إلغاء التحدي", "Cancel challenge")}</button>`);
   if (c.status === "lobby" && me && c.visibility === "private" && c.token)
-    controls.push(
-      `<button class="secondary-button" data-action="copy-invite" data-token="${esc(c.token)}">${tr("نسخ رابط الدعوة", "Copy invite link")}</button>`,
-    );
-  const winner = c.winner
-    ? `<div class="winner-card">${tr("الفائز: ", "Winner: ")}${who(c.winner)}</div>`
+    controls.push(`<button class="secondary-button" data-action="copy-invite" data-token="${esc(c.token)}">${tr("نسخ رابط الدعوة", "Copy invite link")}</button>`);
+  const winnerList = c.winners?.length ? c.winners : c.winner ? [c.winner] : [];
+  const winner = c.status === "complete"
+    ? c.draw
+      ? `<div class="winner-card">${tr("تعادل: ", "Draw: ")}${winnerList.map(who).join(" · ")}</div>`
+      : winnerList.length
+        ? `<div class="winner-card">${tr("الفائز: ", "Winner: ")}${who(winnerList[0])}</div>`
+        : `<div class="winner-card">${tr("لا توجد نتيجة مؤهلة للفوز.", "No eligible result for a winner.")}</div>`
     : "";
-  const start = c.starts_at
-    ? new Date(c.starts_at).toLocaleString(state.lang === "ar" ? "ar" : "en")
-    : "—";
-  return `<article class="challenge-card"><div class="section-heading"><div><strong>${esc(c.owner?.display_name || c.owner?.username || tr("تحدٍّ", "Challenge"))}</strong><p class="muted">${tr(...(labels.games[c.game] || ["تدريب", "Practice"]))} · ${tr(...(labels.levels[c.difficulty] || ["متوسط", "Medium"]))} · ${c.visibility === "private" ? tr("خاص", "Private") : tr("عام", "Public")}</p></div><span class="pill">${esc(c.status)}</span></div><p class="muted">${tr("اللاعبون", "Players")}: ${c.participants?.length || 0}/${c.max_players} · ${tr("البدء", "Starts")}: ${esc(start)}</p><div class="player-list">${member}</div>${winner}<div class="wrap">${controls.join("")}</div></article>`;
+  const dateValue = c.scheduled_at || c.starts_at;
+  const dateText = dateValue
+    ? new Intl.DateTimeFormat(state.lang === "ar" ? "ar-SA" : "en", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(new Date(dateValue))
+    : tr("بانتظار بدء المضيف", "Waiting for host to start");
+  const eventLabel = c.event_kind === "friday" ? tr("فعالية الجمعة", "Friday event") : tr("تحدٍّ", "Challenge");
+  const judgeLabels = { points: tr("النقاط", "Points"), speed: tr("السرعة", "Speed"), accuracy: tr("الدقة", "Accuracy"), fewest_errors: tr("الأخطاء الأقل", "Fewest errors") };
+  const topic = labels.topics[c.topic] || labels.topics.mixed;
+  const roundText = c.status === "active"
+    ? tr(`الجولة ${c.current_round || 1}/${c.round_count || 1}`, `Round ${c.current_round || 1}/${c.round_count || 1}`)
+    : tr(`${c.round_count || 1} جولات`, `${c.round_count || 1} rounds`);
+  return `<article class="challenge-card"><div class="section-heading"><div><span class="eyebrow">${eventLabel}</span><strong>${esc(c.owner?.display_name || c.owner?.username || tr("تحدٍّ", "Challenge"))}</strong><p class="muted">${tr(...(labels.games[c.game] || ["تدريب", "Practice"]))} · ${tr(...(labels.levels[c.difficulty] || ["متوسط", "Medium"]))} · ${tr(...topic)} · ${c.visibility === "private" ? tr("خاص", "Private") : tr("عام", "Public")}</p></div><span class="pill">${esc(c.status)}</span></div><p class="muted">${roundText} · ${tr("الحكم الآلي", "Automatic judge")}: ${esc(judgeLabels[c.judge_mode] || judgeLabels.points)} · ${tr("الموعد", "Time")}: ${esc(dateText)} · ${tr("المشاركون", "Players")}: ${c.participants?.length || 0}/${c.max_players}</p><div class="challenge-player-list">${member}</div>${winner}<div class="wrap">${controls.join("")}</div></article>`;
 }
 function showChallengeDetail(c) {
+  if (c.status === "active" && c.round && Number(c.round.round_number || 1) > state.challengeSubmittedRound)
+    state.challengeRoundSubmitted = false;
   state.challenge = c;
   const host = $("challengePanel");
   if (host) host.innerHTML = challengeCard(c, true);
@@ -1212,6 +1382,8 @@ async function pollChallenge(force = false) {
     );
     const c = d.challenge;
     const prior = state.challenge?.status;
+    if (c.status === "active" && c.round && Number(c.round.round_number || 1) > state.challengeSubmittedRound)
+      state.challengeRoundSubmitted = false;
     state.challenge = c;
     if (state.page === "community") {
       const host = $("challengePanel");
@@ -1256,22 +1428,50 @@ function startChallengePolling() {
       loadPublicChallenges();
   }, 2000);
 }
-async function createChallengeForm() {
-  const games = Object.keys(labels.games),
-    levels = Object.keys(labels.levels);
+const challengePresets = {
+  speed: { game: "sentences", difficulty: "medium", visibility: "public", round_count: 2, judge_mode: "speed", topic: "mixed", event_kind: "challenge" },
+  accuracy: { game: "stories", difficulty: "medium", visibility: "public", round_count: 3, judge_mode: "accuracy", topic: "science", event_kind: "challenge" },
+  marathon: { game: "news", difficulty: "hard", visibility: "public", round_count: 5, judge_mode: "fewest_errors", topic: "culture", event_kind: "challenge" },
+  friday: { game: "stories", difficulty: "medium", visibility: "public", round_count: 3, judge_mode: "points", topic: "mixed", event_kind: "friday" },
+};
+async function createChallengeForm(preset = {}, opponentUsername = "") {
+  const direct = Boolean(opponentUsername);
+  const defaults = { game: "sentences", difficulty: "medium", visibility: direct ? "private" : "private", max_players: direct ? 2 : 2, round_count: direct ? 3 : 1, judge_mode: "points", topic: "mixed", event_kind: "challenge", ...preset };
+  if (direct) Object.assign(defaults, { visibility: "private", max_players: 2, event_kind: "challenge" });
+  const games = Object.keys(labels.games);
+  const levels = Object.keys(labels.levels);
+  const topics = Object.keys(labels.topics);
+  const judgeModes = ["points", "speed", "accuracy", "fewest_errors"];
   openModal(
-    tr("إنشاء تحدٍّ", "Create a challenge"),
-    `<form class="stack-form" data-form="create-challenge"><label>${tr("اللعبة", "Game")}<select name="game">${games.map((g) => `<option value="${g}">${tr(...labels.games[g])}</option>`).join("")}</select></label><label>${tr("المستوى", "Difficulty")}<select name="difficulty">${levels.map((l) => `<option value="${l}">${tr(...labels.levels[l])}</option>`).join("")}</select></label><label data-repeat-label hidden>${tr("عدد التكرارات (1–20)", "Repetitions (1–20)")}<input name="count" type="number" min="1" max="20" value="3"></label><label>${tr("نوع التحدي", "Visibility")}<select name="visibility"><option value="private">${tr("خاص (رابط دعوة)", "Private (invite link)")}</option><option value="public">${tr("عام (ردهة)", "Public lobby")}</option></select></label><label>${tr("الحد الأقصى للاعبين (2–8)", "Maximum players (2–8)")}<input name="max_players" type="number" min="2" max="8" value="2" required></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("إنشاء", "Create")}</button></form>`,
+    direct ? `${tr("تحدٍّ خاص مع", "Private challenge with")} @${esc(opponentUsername)}` : defaults.event_kind === "friday" ? tr("إعداد فعالية الجمعة", "Set up Friday event") : tr("إنشاء تحدٍّ", "Create a challenge"),
+    `<form class="stack-form challenge-form" data-form="create-challenge" data-opponent="${esc(opponentUsername)}"><label>${tr("اللعبة", "Game")}<select name="game">${games.map((g) => `<option value="${g}" ${defaults.game === g ? "selected" : ""}>${tr(...labels.games[g])}</option>`).join("")}</select></label><label>${tr("المستوى", "Difficulty")}<select name="difficulty">${levels.map((level) => `<option value="${level}" ${defaults.difficulty === level ? "selected" : ""}>${tr(...labels.levels[level])}</option>`).join("")}</select></label><label data-topic-label>${tr("موضوع النص", "Text topic")}<select name="topic">${topics.map((topic) => `<option value="${topic}" ${defaults.topic === topic ? "selected" : ""}>${tr(...labels.topics[topic])}</option>`).join("")}</select></label><label data-repeat-label hidden>${tr("عدد الكلمات (1–20)", "Word count (1–20)")}<input name="count" type="number" min="1" max="20" value="3"></label><label>${tr("عدد الجولات (1–10)", "Rounds (1–10)")}<input name="round_count" type="number" min="1" max="10" value="${defaults.round_count}" required></label><label>${tr("طريقة الحكم الآلي", "Automatic judging")}<select name="judge_mode">${judgeModes.map((mode) => `<option value="${mode}" ${defaults.judge_mode === mode ? "selected" : ""}>${mode === "fewest_errors" ? tr("الأخطاء الأقل ثم الدقة", "Fewest errors, then accuracy") : mode === "accuracy" ? tr("الدقة أولًا", "Accuracy first") : mode === "speed" ? tr("السرعة أولًا", "Speed first") : tr("النقاط ثم الدقة والسرعة", "Points, then accuracy and speed")}</option>`).join("")}</select></label><label data-event-label>${tr("نوع الفعالية", "Event type")}<select name="event_kind"><option value="challenge" ${defaults.event_kind === "challenge" ? "selected" : ""}>${tr("تحدٍّ عادي", "Regular challenge")}</option><option value="friday" ${defaults.event_kind === "friday" ? "selected" : ""}>${tr("فعالية الجمعة القادمة · 8 مساءً السعودية", "Next Friday · 8 PM Saudi time")}</option></select></label><label data-visibility-label>${tr("نوع التحدي", "Visibility")}<select name="visibility"><option value="private" ${defaults.visibility === "private" ? "selected" : ""}>${tr("خاص (رابط دعوة)", "Private (invite link)")}</option><option value="public" ${defaults.visibility === "public" ? "selected" : ""}>${tr("عام (يظهر للمجتمع)", "Public (visible to community)")}</option></select></label><label data-maxplayers-label>${tr("الحد الأقصى للمشاركين (2–8)", "Maximum participants (2–8)")}<input name="max_players" type="number" min="2" max="8" value="${defaults.max_players}" required></label><p class="field-hint">${direct ? tr("سيتلقى الطرف الآخر بطاقة دعوة داخل هذه المحادثة، وسيبدأ المضيف الجولة عند جاهزية الطرفين.", "The other person will receive an invite card in this conversation; the host starts once both are ready.") : tr("الحكم آلي وفق الترتيب الظاهر؛ إحصاءات كل لاعب وكل جولة يراها المشاركون.", "The automatic judge uses the selected order; every participant's overall and per-round stats are visible.")}</p><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("إنشاء", "Create")}</button></form>`,
   );
-  const f = $("modalBody").querySelector("form");
-  f.elements.game.addEventListener(
-    "change",
-    () =>
-      (f.querySelector("[data-repeat-label]").hidden =
-        f.elements.game.value !== "repeat"),
-  );
+  const form = $("modalBody").querySelector("form");
+  const syncForm = () => {
+    form.querySelector("[data-repeat-label]").hidden = form.elements.game.value !== "repeat";
+    form.querySelector("[data-topic-label]").hidden = form.elements.game.value === "repeat";
+    form.querySelector("[data-event-label]").hidden = direct;
+    form.querySelector("[data-visibility-label]").hidden = direct;
+    form.querySelector("[data-maxplayers-label]").hidden = direct;
+    const isFriday = form.elements.event_kind.value === "friday" && !direct;
+    form.elements.round_count.min = isFriday ? "2" : "1";
+    if (isFriday) {
+      form.elements.visibility.value = "public";
+      form.elements.round_count.value = String(Math.max(2, Number(form.elements.round_count.value) || 2));
+    }
+    form.elements.visibility.querySelector('option[value="private"]').disabled = isFriday;
+    if (direct) {
+      form.elements.visibility.value = "private";
+      form.elements.event_kind.value = "challenge";
+      form.elements.max_players.value = "2";
+    }
+  };
+  form.elements.game.addEventListener("change", syncForm);
+  form.elements.event_kind.addEventListener("change", syncForm);
+  syncForm();
 }
 async function challengeAction(action, token) {
+  if (state.page !== "community") setPage("community");
   try {
     const d = await api(
       `/api/challenges/${encodeURIComponent(token)}/${action}`,
@@ -1358,11 +1558,12 @@ $("page-settings").addEventListener("change", (e) => {
       .forEach((x) => {
         if (x.name && x.type !== "file") saved[x.name] = x.value;
       });
-    state.lang = e.target.value;
-    setPref("lang", state.lang);
-    setLanguage();
-    renderSettings();
-    $("page-settings")
+      state.lang = e.target.value;
+      setPref("lang", state.lang);
+      setLanguage();
+      renderSettings();
+      $("page-community").replaceChildren();
+      $("page-settings")
       .querySelectorAll("form input,form textarea,form select")
       .forEach((x) => {
         if (x.name && saved[x.name] !== undefined) x.value = saved[x.name];
@@ -1448,23 +1649,33 @@ $("modalBody").addEventListener("submit", async (e) => {
         game,
         difficulty: fd.get("difficulty"),
         language: state.lang,
-        visibility: fd.get("visibility"),
-        max_players: Math.max(
-          2,
-          Math.min(8, Number(fd.get("max_players")) || 2),
-        ),
+        visibility: fd.get("event_kind") === "friday" ? "public" : fd.get("visibility"),
+        max_players: Math.max(2, Math.min(8, Number(fd.get("max_players")) || 2)),
+        round_count: Math.max(1, Math.min(10, Number(fd.get("round_count")) || 1)),
+        judge_mode: fd.get("judge_mode"),
+        event_kind: fd.get("event_kind"),
+        topic: game === "repeat" ? "mixed" : fd.get("topic"),
       };
+      if (f.dataset.opponent) {
+        body.visibility = "private";
+        body.max_players = 2;
+        body.event_kind = "challenge";
+        body.opponent_username = f.dataset.opponent;
+      }
+      if (body.event_kind === "friday") body.round_count = Math.max(2, body.round_count);
       if (game === "repeat")
         body.count = Math.max(1, Math.min(20, Number(fd.get("count")) || 1));
       const d = await api("/api/challenges", { method: "POST", body });
       state.challenge = d.challenge;
       state.challengeToken = d.challenge.token;
       state.challengeRoundSubmitted = false;
+      state.challengeSubmittedRound = 0;
       startChallengePolling();
       closeModal();
       setPage("community");
       showChallengeDetail(d.challenge);
-      if (d.challenge.visibility === "private") copyInvite(d.challenge.token);
+      if (d.challenge.visibility === "private" && !f.dataset.opponent) copyInvite(d.challenge.token);
+      if (f.dataset.opponent) toast(tr(`تم إرسال دعوة التحدي إلى @${f.dataset.opponent}.`, `Challenge invite sent to @${f.dataset.opponent}.`));
     } else if (f.dataset.form === "suggestion") {
       await api("/api/suggestions", {
         method: "POST",
@@ -1554,7 +1765,7 @@ function renderThreadList() {
     state.threads
       .map(
         (t) =>
-          `<button class="thread-row ${state.activeThread === t.user.username ? "active" : ""}" data-action="open-thread" data-username="${esc(t.user.username)}">${avatar(t.user.avatar_url, t.user.display_name)}<span class="thread-preview"><strong>${who(t.user)}</strong><small>${esc(t.last_message?.body || "")}</small></span>${t.unread ? `<span class="badge unread">${esc(t.unread)}</span>` : ""}</button>`,
+          `<button class="thread-row ${state.activeThread === t.user.username ? "active" : ""}" data-action="open-thread" data-username="${esc(t.user.username)}">${avatar(t.user.avatar_url, t.user.display_name)}<span class="thread-preview"><strong>${who(t.user)}</strong><small>${esc(t.last_message?.image_url ? tr("صورة", "Photo") : t.last_message?.challenge_token ? tr("دعوة تحدٍّ", "Challenge invite") : t.last_message?.body || "")}</small></span>${t.unread ? `<span class="badge unread">${esc(t.unread)}</span>` : ""}</button>`,
       )
       .join("") ||
     `<p class="empty-state">${tr("لا توجد محادثات. ابدأ محادثة من المجتمع.", "No conversations yet. Start one from Community.")}</p>`;
@@ -1568,9 +1779,60 @@ async function loadThreads() {
     if (e.status !== 401) showError(e);
   }
 }
+function validChatTheme(value) {
+  return ["violet", "ocean", "mint", "rose", "amber"].includes(value) ? value : "violet";
+}
+function validChatBackground(value) {
+  return ["plain", "aurora", "dunes", "stars", "paper"].includes(value) ? value : "plain";
+}
+function syncChatAppearance(username = state.activeThread) {
+  const panel = $("conversationPanel");
+  if (!panel || !username) return;
+  panel.dataset.chatTheme = validChatTheme(localPref(`chat-theme:${username}`, "violet"));
+  panel.dataset.chatBackground = validChatBackground(localPref(`chat-background:${username}`, "plain"));
+}
+function openChatAppearance() {
+  if (!state.activeThread) return;
+  const theme = validChatTheme(localPref(`chat-theme:${state.activeThread}`, "violet"));
+  const background = validChatBackground(localPref(`chat-background:${state.activeThread}`, "plain"));
+  const themes = [
+    ["violet", tr("بنفسجي", "Violet")], ["ocean", tr("محيطي", "Ocean")],
+    ["mint", tr("نعناعي", "Mint")], ["rose", tr("وردي", "Rose")],
+    ["amber", tr("عنبر", "Amber")],
+  ];
+  const backgrounds = [
+    ["plain", tr("هادئة", "Plain")], ["aurora", tr("الشفق", "Aurora")],
+    ["dunes", tr("الكثبان", "Dunes")], ["stars", tr("النجوم", "Stars")],
+    ["paper", tr("ورقية", "Paper")],
+  ];
+  openModal(tr("مظهر المحادثة", "Chat appearance"), `<p class="field-hint">${tr("يُحفظ المظهر لهذا الحوار على هذا الجهاز فقط.", "Appearance is saved for this conversation on this device only.")}</p><section class="appearance-section"><h3>${tr("لون المحادثة", "Chat theme")}</h3><div class="appearance-choices">${themes.map(([value, label]) => `<button type="button" class="appearance-choice theme-${value} ${theme === value ? "selected" : ""}" data-action="set-chat-theme" data-value="${value}" aria-pressed="${theme === value}"><span class="appearance-dot"></span>${label}</button>`).join("")}</div></section><section class="appearance-section"><h3>${tr("الخلفية", "Background")}</h3><div class="appearance-choices">${backgrounds.map(([value, label]) => `<button type="button" class="appearance-choice background-${value} ${background === value ? "selected" : ""}" data-action="set-chat-background" data-value="${value}" aria-pressed="${background === value}"><span class="appearance-swatch"></span>${label}</button>`).join("")}</div></section>`);
+}
+function applyChatAppearanceChoice(kind, value) {
+  if (!state.activeThread) return;
+  if (kind === "theme") {
+    value = validChatTheme(value);
+    setPref(`chat-theme:${state.activeThread}`, value);
+    $("conversationPanel").dataset.chatTheme = value;
+    $("modalBody").querySelectorAll("[data-action='set-chat-theme']").forEach((button) => {
+      const selected = button.dataset.value === value;
+      button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  } else {
+    value = validChatBackground(value);
+    setPref(`chat-background:${state.activeThread}`, value);
+    $("conversationPanel").dataset.chatBackground = value;
+    $("modalBody").querySelectorAll("[data-action='set-chat-background']").forEach((button) => {
+      const selected = button.dataset.value === value;
+      button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  }
+}
 function openConversationView(user) {
   state.activeThread = user.username;
   state.messageAfter = 0;
+  syncChatAppearance(user.username);
   $("conversationPanel").hidden = false;
   $("conversationEmpty").hidden = true;
   $("page-messages").classList.add("conversation-open");
@@ -1617,8 +1879,30 @@ function appendMessages(messages) {
     const mine = String(m.sender_id) === String(state.user.id);
     const row = document.createElement("div");
     row.className = `message-bubble ${mine ? "mine" : ""}`;
-    const body = document.createElement("div");
-    body.textContent = m.body;
+    if (m.body) {
+      const body = document.createElement("div");
+      body.className = "message-body";
+      body.textContent = m.body;
+      row.append(body);
+    }
+    if (m.image_url) {
+      const image = document.createElement("img");
+      image.className = "message-image";
+      image.src = m.image_url;
+      image.alt = tr("صورة في رسالة خاصة", "Image in a private message");
+      image.loading = "lazy";
+      image.decoding = "async";
+      row.append(image);
+    }
+    if (m.challenge_token) {
+      const invitation = document.createElement("button");
+      invitation.className = "secondary-button message-challenge-invite";
+      invitation.type = "button";
+      invitation.dataset.action = "open-challenge-invite";
+      invitation.dataset.token = m.challenge_token;
+      invitation.textContent = tr("فتح تحدي الكتابة", "Open typing challenge");
+      row.append(invitation);
+    }
     const time = document.createElement("time");
     time.className = "message-time";
     time.textContent = m.created_at
@@ -1627,7 +1911,7 @@ function appendMessages(messages) {
           { hour: "2-digit", minute: "2-digit" },
         )
       : "";
-    row.append(body, time);
+    row.append(time);
     log.append(row);
     state.messageAfter = Math.max(state.messageAfter, +m.id || 0);
   }
@@ -1678,6 +1962,57 @@ $("messageForm").addEventListener("submit", async (e) => {
     form.dataset.sending = "";
   }
 });
+async function uploadMessageImage(file) {
+  if (!state.activeThread || !file) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+    toast(tr("اختر صورة JPEG أو PNG أو WebP لا تتجاوز 5 ميغابايت.", "Choose a JPEG, PNG or WebP image no larger than 5 MB."));
+    return;
+  }
+  const username = state.activeThread;
+  const form = $("messageForm");
+  const button = $("messageImageButton");
+  const input = $("messageImageInput");
+  if (form.dataset.sending === "1") return;
+  form.dataset.sending = "1";
+  button.disabled = true;
+  try {
+    const payload = new FormData();
+    payload.append("image", file);
+    payload.append("caption", $("messageInput").value);
+    const result = await api(`/api/messages/${encodeURIComponent(username)}/image`, { method: "POST", form: payload });
+    if (state.activeThread !== username) return;
+    $("messageInput").value = "";
+    $("messageInput").style.height = "";
+    appendMessages([result.message]);
+    loadThreads();
+  } catch (error) {
+    showError(error);
+  } finally {
+    form.dataset.sending = "";
+    button.disabled = false;
+    input.value = "";
+  }
+}
+$("messageImageButton").addEventListener("click", () => $("messageImageInput").click());
+$("messageImageInput").addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (file) uploadMessageImage(file);
+});
+async function openChallengeInvitation(token) {
+  if (!token) return;
+  try {
+    const result = await api(`/api/challenges/${encodeURIComponent(token)}`);
+    state.challenge = result.challenge;
+    state.challengeToken = result.challenge.token || token;
+    state.challengeRoundSubmitted = false;
+    state.challengeSubmittedRound = 0;
+    setPage("community");
+    showChallengeDetail(result.challenge);
+    startChallengePolling();
+  } catch (error) {
+    showError(error);
+  }
+}
 function startMessagePolling() {
   clearInterval(state.messagePoll);
   state.messagePoll = setInterval(() => {
@@ -1857,6 +2192,39 @@ document.addEventListener("click", async (e) => {
       break;
     case "create-challenge":
       createChallengeForm();
+      break;
+    case "direct-challenge":
+      if (state.activeThread) createChallengeForm({ game: "sentences", difficulty: "medium", visibility: "private", max_players: 2, round_count: 3, judge_mode: "points", topic: "mixed", event_kind: "challenge" }, state.activeThread);
+      break;
+    case "open-chat-appearance":
+      openChatAppearance();
+      break;
+    case "set-chat-theme":
+      applyChatAppearanceChoice("theme", b.dataset.value);
+      break;
+    case "set-chat-background":
+      applyChatAppearanceChoice("background", b.dataset.value);
+      break;
+    case "select-message-image":
+      $("messageImageInput").click();
+      break;
+    case "open-challenge-invite":
+      openChallengeInvitation(token);
+      break;
+    case "create-preset":
+      createChallengeForm(challengePresets[b.dataset.preset] || {});
+      break;
+    case "create-friday":
+      createChallengeForm(challengePresets.friday);
+      break;
+    case "speak-round":
+      speakRoundText();
+      break;
+    case "toggle-key-sound":
+      state.soundEnabled = !state.soundEnabled;
+      setPref("key-sound", state.soundEnabled ? "on" : "off");
+      updateSoundButton();
+      if (state.soundEnabled) playTypingTone(true);
       break;
     case "challenge-join":
       challengeAction("join", token);
