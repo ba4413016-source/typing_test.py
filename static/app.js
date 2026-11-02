@@ -8,13 +8,17 @@ const esc = (v = "") =>
       ],
   );
 const storedLang = localPref("lang", "ar"),
-  storedTheme = localPref("theme", "dark");
+  storedTheme = localPref("theme", "dark"),
+  storedAccent = localPref("accent", "violet");
 const state = {
   user: null,
   csrf: null,
   page: "home",
   lang: ["ar", "en"].includes(storedLang) ? storedLang : "ar",
   theme: ["dark", "light"].includes(storedTheme) ? storedTheme : "dark",
+  accent: ["violet", "ocean", "mint", "rose"].includes(storedAccent)
+    ? storedAccent
+    : "violet",
   authMode: "login",
   busy: false,
   round: null,
@@ -31,6 +35,7 @@ const state = {
   challengeRoundSubmitted: false,
   challengeOffset: 0,
   botMode: "idle",
+  stopAfterCurrent: false,
   flow: {},
   threads: [],
   activeThread: null,
@@ -90,8 +95,9 @@ function toast(text) {
 }
 function setTheme() {
   document.documentElement.dataset.theme = state.theme;
+  document.documentElement.dataset.accent = state.accent;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = state.theme === "dark" ? "#10131d" : "#f4f5f8";
+  if (meta) meta.content = state.theme === "dark" ? "#0d111b" : "#f7f8fc";
 }
 function setLanguage() {
   document.documentElement.lang = state.lang;
@@ -246,19 +252,7 @@ function appendBot(text, kind = "bot") {
   div.append(bubble);
   log.append(div);
   log.scrollTop = log.scrollHeight;
-}
-function appendBotHTML(html, kind = "bot") {
-  const log = $("botLog");
-  const div = document.createElement("div");
-  div.className = `chat-message ${kind}`;
-  div.innerHTML = html;
-  log.append(div);
-  const bottomPadding = parseFloat(getComputedStyle(log).paddingBottom) || 0;
-  log.scrollTop = log.scrollHeight - bottomPadding - div.offsetHeight;
-}
-function botChoices(items) {
-  const html = `<div class="chat-choices">${items.map((x) => `<button class="choice-button" type="button" data-action="${esc(x.action)}" data-value="${esc(x.value)}">${esc(x.label)}</button>`).join("")}</div>`;
-  appendBotHTML(html);
+  return div;
 }
 function setPage(page) {
   if (!["home", "bot", "community", "messages", "settings"].includes(page))
@@ -274,6 +268,10 @@ function setPage(page) {
     else b.removeAttribute("aria-current");
   });
   $("appScreen").classList.toggle("bot-active", page === "bot");
+  $("appScreen").classList.toggle(
+    "dm-open",
+    page === "messages" && $("page-messages").classList.contains("conversation-open"),
+  );
   if (page === "home") renderHome();
   if (page === "community") {
     loadCommunity();
@@ -318,6 +316,10 @@ function updateBotIdentity() {
   $("botName").textContent =
     state.user.bot?.name || tr("رفيق الكتابة", "Typing companion");
   $("botAvatar").src = state.user.bot?.avatar_url || "/static/brand.svg";
+  $("botStatus").textContent = tr(
+    "اكتب «ابدأ» لبدء التدريب · «وقف» للإيقاف",
+    "Type “start” to practice · “stop” to finish",
+  );
   $("selfProfileButton").innerHTML = avatar(
     state.user.avatar_url,
     state.user.display_name,
@@ -434,6 +436,7 @@ function cancelLocalRound() {
   state.round = null;
   state.started = false;
   state.beginPromise = null;
+  state.stopAfterCurrent = false;
 }
 function clearRuntime() {
   cancelLocalRound();
@@ -451,19 +454,61 @@ function botPrompt() {
   if (state.botMode === "idle")
     appendBot(
       tr(
-        "اكتب «ابدأ» أو start لنبدأ، أو «مساعدة» لمعرفة الأوامر.",
-        "Type “start” to begin, or “help” for commands.",
+        "اكتب «جمل متوسط» لبدء جولة مباشرة، أو «مساعدة» للأوامر.",
+        "Type “sentences medium” to start, or “help” for commands.",
       ),
     );
 }
 function command(text) {
   return text.trim().toLocaleLowerCase();
 }
+function commandTokens(text) {
+  return command(text)
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[،,]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+const gameAliases = {
+  sentences: "sentences",
+  sentence: "sentences",
+  words: "sentences",
+  جمل: "sentences",
+  جملة: "sentences",
+  كلمات: "sentences",
+  stories: "stories",
+  story: "stories",
+  قصة: "stories",
+  قصص: "stories",
+  news: "news",
+  أخبار: "news",
+  اخبار: "news",
+  جريدة: "news",
+  repeat: "repeat",
+  تكرار: "repeat",
+};
+function findGame(tokens) {
+  const index = tokens.findIndex((token) => gameAliases[token]);
+  return index < 0 ? null : { game: gameAliases[tokens[index]], index };
+}
+function findLevel(tokens) {
+  const aliases = {
+    easy: "easy",
+    سهل: "easy",
+    medium: "medium",
+    متوسط: "medium",
+    hard: "hard",
+    صعب: "hard",
+  };
+  const index = tokens.findIndex((token) => aliases[token]);
+  return index < 0 ? null : { level: aliases[tokens[index]], index };
+}
 function showBotHelp() {
   appendBot(
     tr(
-      "الأوامر: ابدأ / ابدا / start لبدء التدريب، وقف / stop لإيقافه، مساعدة / help للأوامر، إحصائيات / stats لعرض أدائك. يمكنك إرسال إجابتك حتى مع الأخطاء.",
-      "Commands: ابدأ / ابدا / start to practice, وقف / stop to stop, help for commands, stats for your stats. Answers with mistakes are accepted.",
+      "اكتب اللعبة والمستوى مباشرة، مثل «جمل متوسط» أو «تكرار متوسط ٥». الأوامر: وقف، إحصائيات، مساعدة، إعدادات. الألعاب: جمل، قصة، أخبار، تكرار؛ والمستويات: سهل، متوسط، صعب.",
+      "Type a game and level, e.g. “sentences medium” or “repeat medium 5”. Commands: stop, stats, help, settings. Games: sentences, stories, news, repeat; levels: easy, medium, hard.",
     ),
   );
 }
@@ -485,10 +530,7 @@ async function showStats() {
     showError(e);
   }
 }
-function startFlow() {
-  $("botLog")
-    .querySelectorAll(".choice-button")
-    .forEach((b) => (b.disabled = true));
+async function startFlow(initialTokens = []) {
   if (state.challenge && state.challenge.status === "active") {
     appendBot(
       tr(
@@ -500,14 +542,14 @@ function startFlow() {
   }
   state.botMode = "choose-game";
   state.flow = {};
-  appendBot(tr("اختر نوع اللعبة:", "Choose a game:"));
-  botChoices(
-    Object.keys(labels.games).map((g) => ({
-      action: "game",
-      value: g,
-      label: tr(...labels.games[g]),
-    })),
-  );
+  if (!initialTokens.length)
+    appendBot(
+      tr(
+        "اكتب نوع التدريب: جمل، قصة، أخبار، أو تكرار. مثال: جمل متوسط.",
+        "Type a game: sentences, stories, news, or repeat. Example: sentences medium.",
+      ),
+    );
+  if (initialTokens.length) await advanceBotFlow(initialTokens);
 }
 function startKeyListener() {
   $("botInput").addEventListener("input", () => {
@@ -521,36 +563,64 @@ function startKeyListener() {
     }
   });
 }
-async function chooseGame(game) {
-  state.flow.game = game;
-  state.botMode = "choose-level";
-  appendBot(tr("اختر مستوى الصعوبة:", "Choose a difficulty:"));
-  botChoices(
-    Object.keys(labels.levels).map((l) => ({
-      action: "level",
-      value: l,
-      label: tr(...labels.levels[l]),
-    })),
-  );
+function bindKeyboardComposer(id) {
+  const input = $(id);
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    input.form.requestSubmit();
+  });
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 180)}px`;
+  });
 }
-async function chooseLevel(level) {
-  state.flow.difficulty = level;
-  if (state.flow.game === "repeat") {
-    state.botMode = "choose-count";
-    appendBot(
-      tr(
-        "كم كلمة مختلفة في الجولة؟ اختر 1–20؛ ستكتب كل كلمة ثلاث مرات.",
-        "How many different words? Choose 1–20; type each word three times.",
-      ),
-    );
-    botChoices(
-      Array.from({ length: 20 }, (_, i) => ({
-        action: "count",
-        value: String(i + 1),
-        label: String(i + 1),
-      })),
-    );
-  } else await createPracticeRound();
+bindKeyboardComposer("botInput");
+bindKeyboardComposer("messageInput");
+async function advanceBotFlow(tokens) {
+  if (state.botMode === "choose-game") {
+    const selected = findGame(tokens);
+    if (!selected) {
+      appendBot(
+        tr("اكتب: جمل، قصة، أخبار، أو تكرار.", "Type: sentences, stories, news, or repeat."),
+      );
+      return;
+    }
+    state.flow.game = selected.game;
+    state.botMode = "choose-level";
+    const remaining = tokens.slice(selected.index + 1);
+    if (remaining.length)
+      await advanceBotFlow(remaining);
+    else
+      appendBot(tr("اكتب المستوى: سهل، متوسط، أو صعب.", "Type a level: easy, medium, or hard."));
+    return;
+  }
+  if (state.botMode === "choose-level") {
+    const selected = findLevel(tokens);
+    if (!selected) {
+      appendBot(tr("اكتب المستوى: سهل، متوسط، أو صعب.", "Type: easy, medium, or hard."));
+      return;
+    }
+    state.flow.difficulty = selected.level;
+    const remaining = tokens.slice(selected.index + 1);
+    if (state.flow.game === "repeat") {
+      state.botMode = "choose-count";
+      if (remaining.length) await advanceBotFlow(remaining);
+      else appendBot(tr("كم كلمة؟ اكتب رقمًا من 1 إلى 20.", "How many words? Type a number from 1 to 20."));
+    } else {
+      await createPracticeRound();
+    }
+    return;
+  }
+  if (state.botMode === "choose-count") {
+    const count = tokens.map(Number).find((value) => Number.isInteger(value) && value >= 1 && value <= 20);
+    if (!count) {
+      appendBot(tr("اكتب رقمًا من 1 إلى 20.", "Type a number from 1 to 20."));
+      return;
+    }
+    state.flow.count = count;
+    await createPracticeRound(count);
+  }
 }
 async function createPracticeRound(count) {
   const continuing = state.botMode === "between";
@@ -559,8 +629,6 @@ async function createPracticeRound(count) {
   const controller = new AbortController();
   state.roundAbort = controller;
   state.botMode = "loading";
-  if (!continuing)
-    appendBot(tr("أجهّز لك نصًا جديدًا…", "Preparing a fresh text…"));
   try {
     const body = {
       game: state.flow.game,
@@ -576,22 +644,21 @@ async function createPracticeRound(count) {
     });
     if (token !== state.roundToken || controller.signal.aborted) return;
     state.round = d.round;
+    if (state.stopAfterCurrent) {
+      state.stopAfterCurrent = false;
+      await stopBot({ silent: true });
+      return;
+    }
     state.started = false;
     state.beginPromise = null;
     state.challengeRoundSubmitted = false;
     state.botMode = "playing";
     renderRound();
-    if (!continuing) {
-      appendBot(
-        tr(
-          "اكتب النص في خانة الإجابة. أرسل إجابتك حتى إن أخطأت.",
-          "Type the target in the answer box. Submit even if you make mistakes.",
-        ),
-      );
-    }
+    if (!continuing) $("botInput").focus({ preventScroll: true });
   } catch (e) {
     if (e.name !== "AbortError" && token === state.roundToken) {
       state.botMode = "idle";
+      state.stopAfterCurrent = false;
       $("roundPanel").hidden = true;
       showError(e);
     }
@@ -626,6 +693,73 @@ function renderRound() {
   $("botInput").placeholder = tr("اكتب إجابتك…", "Type your answer…");
   document.body.classList.add("round-active");
 }
+function graphemes(value) {
+  if (typeof Intl.Segmenter === "function") {
+    return Array.from(
+      new Intl.Segmenter(state.lang, { granularity: "grapheme" }).segment(value),
+      (part) => part.segment,
+    );
+  }
+  return Array.from(value);
+}
+function scoreLiveText(expectedText, typedText) {
+  const expected = graphemes((expectedText || "").normalize("NFC"));
+  const typed = graphemes((typedText || "").normalize("NFC"));
+  const n = expected.length;
+  const m = typed.length;
+  const width = m + 1;
+  const expectedLetters = expected.map((cluster) => /[\p{L}\p{N}]/u.test(cluster));
+  const typedLetters = typed.map((cluster) => /[\p{L}\p{N}]/u.test(cluster));
+  const trace = new Uint8Array((n + 1) * width);
+  let previous = new Uint16Array(width);
+  let current = new Uint16Array(width);
+  for (let j = 1; j <= m; j++) {
+    previous[j] = previous[j - 1] + (typedLetters[j - 1] ? 2 : 1);
+    trace[j] = 3;
+  }
+  for (let i = 1; i <= n; i++) {
+    const expectedCost = expectedLetters[i - 1] ? 2 : 1;
+    current[0] = previous[0] + expectedCost;
+    trace[i * width] = 2;
+    for (let j = 1; j <= m; j++) {
+      const same = expected[i - 1] === typed[j - 1];
+      const diagonal =
+        previous[j - 1] +
+        (same ? 0 : expectedLetters[i - 1] || typedLetters[j - 1] ? 2 : 1);
+      const deletion = previous[j] + expectedCost;
+      const insertion = current[j - 1] + (typedLetters[j - 1] ? 2 : 1);
+      const best = Math.min(diagonal, deletion, insertion);
+      current[j] = best;
+      const index = i * width + j;
+      trace[index] =
+        diagonal === best ? (same ? 0 : 1) : deletion === best ? 2 : 3;
+    }
+    [previous, current] = [current, previous];
+  }
+  let correctCharacters = 0;
+  let i = n;
+  let j = m;
+  while (i || j) {
+    const action = trace[i * width + j];
+    if (action === 0) {
+      correctCharacters++;
+      i--;
+      j--;
+    } else if (action === 1) {
+      i--;
+      j--;
+    } else if (action === 2) {
+      i--;
+    } else {
+      j--;
+    }
+  }
+  const length = Math.max(n, m);
+  return {
+    correctCharacters,
+    accuracy: length ? (100 * correctCharacters) / length : 100,
+  };
+}
 function beginCurrentRound() {
   if (!state.round || state.started)
     return state.beginPromise || Promise.resolve();
@@ -645,14 +779,10 @@ function beginCurrentRound() {
         if (!state.round || token !== state.roundToken) return;
         const sec = Math.max(1, (Date.now() - state.roundStartedAt) / 1000),
           txt = $("botInput").value;
-        const wpm = Math.round(txt.trim().length / 5 / (sec / 60));
-        $("liveSpeed").textContent = `${wpm} WPM`;
-        const target = state.round.target || "",
-          correct = [...txt].filter(
-            (c, i) => c === Array.from(target)[i],
-          ).length;
-        $("liveAccuracy").textContent =
-          `${txt.length ? Math.round((correct / txt.length) * 100) : 100}%`;
+        const score = scoreLiveText(state.round.target || "", txt),
+          wpm = score.correctCharacters / 5 / (sec / 60);
+        $("liveSpeed").textContent = `${wpm.toFixed(1)} WPM`;
+        $("liveAccuracy").textContent = `${score.accuracy.toFixed(1)}%`;
       }, 500);
       return x;
     })
@@ -673,7 +803,7 @@ function validateImage(file) {
     file.size <= 2 * 1024 * 1024
   );
 }
-async function submitPractice(text) {
+async function submitPractice(text, userMessage) {
   const r = state.round;
   if (!r) return;
   state.botMode = "submitting";
@@ -693,7 +823,7 @@ async function submitPractice(text) {
     state.started = false;
     state.beginPromise = null;
     state.user.stats = d.stats || d.result.stats || state.user.stats;
-    renderResult(d.result);
+    renderResult(d.result, userMessage);
     if (state.challenge && state.challenge.status === "active") {
       state.challengeRoundSubmitted = true;
       state.botMode = "challenge-wait";
@@ -705,66 +835,34 @@ async function submitPractice(text) {
         ),
       );
       pollChallenge(true);
+    } else if (state.stopAfterCurrent) {
+      await stopBot({ silent: true });
+      return;
     } else {
       state.botMode = "between";
       state.nextTimer = setTimeout(() => {
         if (token === state.roundToken && state.botMode === "between")
           createPracticeRound();
-      }, 800);
+      }, 220);
     }
   } catch (e) {
     if (e.name !== "AbortError" && token === state.roundToken) {
       state.botMode = "playing";
+      state.stopAfterCurrent = false;
       if (!$("botInput").value) $("botInput").value = text;
       showError(e);
     }
   }
 }
-function renderResult(result) {
+function renderResult(result, userMessage) {
   const formatNumber = (value) =>
     Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "0.0";
-  const symbol = (value) =>
-    value === " "
-      ? tr("مسافة", "space")
-      : value === "" || value == null
-        ? tr("لا شيء", "nothing")
-        : value === "\n"
-          ? tr("سطر جديد", "new line")
-          : String(value);
-  const shownErrors = (result.errors || []).slice(0, 8);
-  const errors = shownErrors
-    .map((error) => {
-      if (typeof error === "string")
-        return `<span class="error-chip">${esc(error)}</span>`;
-      const expected = symbol(error.expected),
-        actual = symbol(error.actual);
-      const description = tr(
-        `${error.position || ""}: المطلوب «${expected}»، كتبت «${actual}»`,
-        `${error.position || ""}: expected “${expected}”, typed “${actual}”`,
-      );
-      return `<span class="error-chip">${esc(description)}</span>`;
-    })
-    .join("");
-  const remaining = Math.max(
-    0,
-    Number(result.error_count || 0) - shownErrors.length,
-  );
-  const breakdown = `${tr("حروف", "Letters")}: ${esc(result.letter_errors ?? 0)} · ${tr("مسافات", "Spaces")}: ${esc(result.spacing_errors ?? 0)} · ${tr("ترقيم", "Punctuation")}: ${esc(result.punctuation_errors ?? 0)}`;
-  const challengeActive = state.challenge?.status === "active";
-  const nextMessage = challengeActive
-    ? tr(
-        "سُجلت نتيجتك؛ ننتظر بقية المشاركين.",
-        "Your result is recorded; waiting for the other players.",
-      )
-    : tr("الجولة التالية بعد لحظة…", "Next round in a moment…");
-  const eligibility = result.eligible
-    ? ""
-    : tr(
-        "هذه النتيجة لا تدخل الترتيب العام. ",
-        "This result does not enter the leaderboard. ",
-      );
-  const html = `<section class="result-summary"><strong>${tr("نتيجة الجولة", "Round result")}</strong><div class="result-metrics"><span>${formatNumber(result.wpm)} WPM</span><span>${formatNumber(result.accuracy)}%</span><span>${esc(result.points)} ${tr("نقطة", "points")}</span></div><p>${tr("الأخطاء", "Errors")}: ${esc(result.error_count)} · ${tr("الخصم", "Penalty")}: ${esc(result.penalty)}</p><p>${breakdown}</p>${errors ? `<div class="error-list">${errors}</div>` : ""}${remaining ? `<p>${remaining} ${tr("أخطاء أخرى.", "more errors.")}</p>` : ""}<p>${eligibility}${nextMessage}</p></section>`;
-  appendBotHTML(html);
+  if (!userMessage) return;
+  const strip = document.createElement("div");
+  strip.className = "result-strip";
+  strip.setAttribute("aria-label", tr("نتيجة الجولة", "Round result"));
+  strip.innerHTML = `<span><bdi dir="ltr">${formatNumber(result.wpm)} WPM</bdi></span><span><bdi dir="ltr">${formatNumber(result.accuracy)}%</bdi> ${tr("دقة", "accuracy")}</span><span><bdi dir="ltr">+${esc(result.points || 0)}</bdi> ${tr("مضافة", "earned")}</span><span><bdi dir="ltr">−${esc(result.penalty || 0)}</bdi> ${tr("خصم", "penalty")}</span>`;
+  userMessage.insertBefore(strip, userMessage.firstChild);
 }
 async function stopBot({ silent = false } = {}) {
   if (state.challenge?.status === "active" && state.round?.challenge_id) {
@@ -778,24 +876,35 @@ async function stopBot({ silent = false } = {}) {
     return;
   }
   const r = state.round;
-  cancelLocalRound();
-  state.botMode = "idle";
-  $("botLog")
-    .querySelectorAll(".choice-button")
-    .forEach((b) => (b.disabled = true));
-  $("roundPanel").hidden = true;
-  document.body.classList.remove("round-active");
-  $("botInput").placeholder = tr("اكتب ابدا…", "Type start…");
   if (r) {
+    state.botMode = "stopping";
     try {
       await api(`/api/rounds/${encodeURIComponent(r.id)}/cancel`, {
         method: "POST",
         body: {},
       });
     } catch (e) {
-      if (e.status !== 409 && e.status !== 401 && !silent) showError(e);
+      if (e.status === 401) return;
+      state.botMode = "playing";
+      if ($("roundPanel").hidden) renderRound();
+      if (silent)
+        toast(
+          tr(
+            "تعذّر إيقاف الجولة. ما زالت مفتوحة؛ أعد كتابة «وقف».",
+            "Could not cancel the round. It is still open; type “stop” to retry.",
+          ),
+        );
+      else showError(e);
+      return;
     }
   }
+  cancelLocalRound();
+  state.botMode = "idle";
+  $("roundPanel").hidden = true;
+  document.body.classList.remove("round-active");
+  $("botInput").placeholder = tr("اكتب أمرًا…", "Type a command…");
+  $("botInput").value = "";
+  $("botInput").style.height = "";
   if (!silent)
     appendBot(
       tr(
@@ -808,66 +917,84 @@ async function handleBotSubmit(e) {
   e.preventDefault();
   const input = $("botInput");
   const text = input.value;
-  if (
-    ["submitting", "between", "loading"].includes(state.botMode) &&
-    !["وقف", "stop"].includes(command(text))
-  )
+  const tokens = commandTokens(text);
+  const cmd = tokens[0] || "";
+  const exactCommand = tokens.length === 1;
+  const stopCommand = exactCommand && ["وقف", "stop"].includes(cmd);
+  if (state.botMode === "stopping") return;
+  if (["submitting", "loading"].includes(state.botMode)) {
+    if (stopCommand) {
+      input.value = "";
+      input.style.height = "";
+      appendBot(text, "user");
+      if (
+        state.botMode === "submitting" &&
+        state.challenge?.status === "active" &&
+        state.round?.challenge_id
+      ) {
+        toast(
+          tr(
+            "لا يمكن إيقاف جولة التحدي أثناء إرسالها.",
+            "A challenge round cannot be stopped while its result is submitting.",
+          ),
+        );
+      } else {
+        state.stopAfterCurrent = true;
+        toast(
+          tr(
+            "سيُوقف التدريب بعد اكتمال الخطوة الحالية.",
+            "Practice will stop after the current step completes.",
+          ),
+        );
+      }
+    }
+    return;
+  }
+  if (state.botMode === "between" && !stopCommand)
     return;
   input.value = "";
+  input.style.height = "";
   if (!text.trim()) return;
-  appendBot(text, "user");
-  const cmd = command(text);
-  if (["وقف", "stop"].includes(cmd)) {
+  const userMessage = appendBot(text, "user");
+  if (exactCommand && ["وقف", "stop"].includes(cmd)) {
     await stopBot();
     return;
   }
-  if (["مساعدة", "help", "?"].includes(cmd)) {
+  if (exactCommand && ["مساعدة", "help", "?"].includes(cmd)) {
     showBotHelp();
     return;
   }
-  if (["إحصائيات", "احصائيات", "stats"].includes(cmd)) {
+  if (exactCommand && ["إحصائيات", "احصائيات", "stats"].includes(cmd)) {
     showStats();
     return;
   }
-  if (["ابدأ", "ابدا", "start"].includes(cmd)) {
+  if (exactCommand && ["إعدادات", "اعدادات", "settings"].includes(cmd)) {
+    setPage("settings");
+    return;
+  }
+  if (
+    ["ابدأ", "ابدا", "start"].includes(cmd) &&
+    (!state.round || exactCommand)
+  ) {
     if (state.round) {
       appendBot(
         tr("هناك جولة قيد التشغيل بالفعل.", "A round is already in progress."),
       );
       return;
     }
-    startFlow();
+    await startFlow(tokens.slice(1));
     return;
   }
-  if (state.botMode === "choose-game") {
-    appendBot(
-      tr(
-        "استخدم أحد الأزرار لاختيار اللعبة.",
-        "Use a button to choose a game.",
-      ),
-    );
+  if (!state.round && state.botMode === "idle" && findGame(tokens)) {
+    await startFlow(tokens);
     return;
   }
-  if (state.botMode === "choose-level") {
-    appendBot(
-      tr(
-        "استخدم أحد الأزرار لاختيار المستوى.",
-        "Use a button to choose a difficulty.",
-      ),
-    );
-    return;
-  }
-  if (state.botMode === "choose-count") {
-    appendBot(
-      tr(
-        "اختر عدد الكلمات من الأزرار؛ كل كلمة تُكتب ثلاث مرات.",
-        "Choose a word count using the buttons; each word is typed three times.",
-      ),
-    );
+  if (["choose-game", "choose-level", "choose-count"].includes(state.botMode)) {
+    await advanceBotFlow(tokens);
     return;
   }
   if (state.round) {
-    await submitPractice(text);
+    await submitPractice(text, userMessage);
     return;
   }
   appendBot(
@@ -879,31 +1006,6 @@ async function handleBotSubmit(e) {
 }
 $("botForm").addEventListener("submit", handleBotSubmit);
 startKeyListener();
-$("stopBotButton").addEventListener("click", () => stopBot());
-$("botSettingsButton").addEventListener("click", () => {
-  setPage("settings");
-});
-$("botLog").addEventListener("click", async (e) => {
-  const button = e.target.closest("[data-action]");
-  if (!button || button.disabled) return;
-  const { action, value } = button.dataset;
-  const requiredStage = {
-    game: "choose-game",
-    level: "choose-level",
-    count: "choose-count",
-  }[action];
-  if (!requiredStage || state.botMode !== requiredStage) return;
-  button
-    .closest(".chat-choices")
-    ?.querySelectorAll("button")
-    .forEach((item) => (item.disabled = true));
-  if (action === "game") await chooseGame(value);
-  if (action === "level") await chooseLevel(value);
-  if (action === "count") {
-    state.flow.count = Math.min(20, Math.max(1, Number(value) || 1));
-    await createPracticeRound(state.flow.count);
-  }
-});
 function renderCommunity() {
   const el = $("page-community");
   if (!el.innerHTML)
@@ -1207,7 +1309,7 @@ function renderSettings() {
   if (!state.user) return;
   const u = state.user;
   const host = $("page-settings");
-  host.innerHTML = `<header class="page-header"><div><p class="eyebrow">${tr("حسابك", "Your account")}</p><h1>${tr("الإعدادات", "Settings")}</h1><p class="muted">${tr("عدّل ملفك الشخصي، رفيق التدريب، وتفضيلات العرض.", "Update your profile, training companion and preferences.")}</p></div></header><div class="settings-grid"><section class="settings-card"><h2>${tr("الملف الشخصي", "Profile")}</h2><div class="upload-row">${avatar(u.avatar_url, u.display_name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="profileAvatar" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="profile"><label>${tr("الاسم الظاهر", "Display name")}<input name="display_name" maxlength="40" value="${esc(u.display_name || "")}" required></label><label>${tr("اسم المستخدم (ثابت)", "Username (immutable)")}<input value="@${esc(u.username)}" disabled dir="ltr"></label><label class="social-field"><span>Instagram</span><input name="instagram" maxlength="100" value="${esc(u.instagram || "")}" placeholder="username"></label><label class="social-field"><span>Snapchat</span><input name="snapchat" maxlength="100" value="${esc(u.snapchat || "")}" placeholder="username"></label><label class="social-field"><span>X / Twitter</span><input name="twitter" maxlength="100" value="${esc(u.twitter || "")}" placeholder="username"></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ الملف", "Save profile")}</button></form></section><section class="settings-card"><h2>${tr("رفيق التدريب", "Training companion")}</h2><div class="upload-row">${avatar(u.bot?.avatar_url, u.bot?.name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="botAvatarUpload" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="bot"><label>${tr("اسم البوت", "Companion name")}<input name="name" maxlength="40" value="${esc(u.bot?.name || "")}" required></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ التخصيص", "Save companion")}</button></form><button class="secondary-button" type="button" data-action="suggestion-form">${tr("اقترح لعبة", "Suggest a game")}</button></section><section class="settings-card"><h2>${tr("المظهر واللغة", "Appearance & language")}</h2><label>${tr("اللغة", "Language")}<select id="prefLanguage"><option value="ar" ${state.lang === "ar" ? "selected" : ""}>العربية</option><option value="en" ${state.lang === "en" ? "selected" : ""}>English</option></select></label><label>${tr("المظهر", "Theme")}<select id="prefTheme"><option value="dark" ${state.theme === "dark" ? "selected" : ""}>${tr("داكن", "Dark")}</option><option value="light" ${state.theme === "light" ? "selected" : ""}>${tr("فاتح", "Light")}</option></select></label><p class="field-hint">${tr("تُحفظ تفضيلات اللغة والمظهر على هذا الجهاز فقط.", "Language and theme preferences are stored on this device only.")}</p></section><section class="settings-card"><div class="section-heading"><h2>${tr("اقتراحاتي", "My suggestions")}</h2><button class="quiet-button" type="button" data-action="load-mine-suggestions">${tr("عرض الحالة", "View status")}</button></div><div id="mineSuggestions"></div></section>${u.role === "admin" ? `<section class="settings-card"><div class="section-heading"><h2>${tr("مراجعة اقتراحات الألعاب", "Game suggestions review")}</h2><button class="quiet-button" data-action="admin-suggestions">${tr("تحميل قائمة المراجعة", "Load queue")}</button></div><div id="adminSuggestions"></div></section>` : ""}<section class="settings-card"><h2>${tr("تسجيل الخروج", "Sign out")}</h2><button class="danger-button" type="button" data-action="logout">${tr("تسجيل الخروج من هذا الجهاز", "Sign out on this device")}</button></section></div>`;
+  host.innerHTML = `<header class="page-header"><div><p class="eyebrow">${tr("حسابك", "Your account")}</p><h1>${tr("الإعدادات", "Settings")}</h1><p class="muted">${tr("عدّل ملفك الشخصي، رفيق التدريب، وتفضيلات العرض.", "Update your profile, training companion and preferences.")}</p></div></header><div class="settings-grid"><section class="settings-card"><h2>${tr("الملف الشخصي", "Profile")}</h2><div class="upload-row">${avatar(u.avatar_url, u.display_name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="profileAvatar" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="profile"><label>${tr("الاسم الظاهر", "Display name")}<input name="display_name" maxlength="40" value="${esc(u.display_name || "")}" required></label><label>${tr("اسم المستخدم (ثابت)", "Username (immutable)")}<input value="@${esc(u.username)}" disabled dir="ltr"></label><label class="social-field"><span>Instagram</span><input name="instagram" maxlength="100" value="${esc(u.instagram || "")}" placeholder="username"></label><label class="social-field"><span>Snapchat</span><input name="snapchat" maxlength="100" value="${esc(u.snapchat || "")}" placeholder="username"></label><label class="social-field"><span>X / Twitter</span><input name="twitter" maxlength="100" value="${esc(u.twitter || "")}" placeholder="username"></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ الملف", "Save profile")}</button></form></section><section class="settings-card"><h2>${tr("رفيق التدريب", "Training companion")}</h2><div class="upload-row">${avatar(u.bot?.avatar_url, u.bot?.name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="botAvatarUpload" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="bot"><label>${tr("اسم البوت", "Companion name")}<input name="name" maxlength="40" value="${esc(u.bot?.name || "")}" required></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ التخصيص", "Save companion")}</button></form><button class="secondary-button" type="button" data-action="suggestion-form">${tr("اقترح لعبة", "Suggest a game")}</button></section><section class="settings-card"><h2>${tr("المظهر واللغة", "Appearance & language")}</h2><label>${tr("اللغة", "Language")}<select id="prefLanguage"><option value="ar" ${state.lang === "ar" ? "selected" : ""}>العربية</option><option value="en" ${state.lang === "en" ? "selected" : ""}>English</option></select></label><label>${tr("المظهر", "Theme")}<select id="prefTheme"><option value="dark" ${state.theme === "dark" ? "selected" : ""}>${tr("داكن", "Dark")}</option><option value="light" ${state.theme === "light" ? "selected" : ""}>${tr("فاتح", "Light")}</option></select></label><label>${tr("لون التمييز", "Accent color")}<select id="prefAccent"><option value="violet" ${state.accent === "violet" ? "selected" : ""}>${tr("بنفسجي", "Violet")}</option><option value="ocean" ${state.accent === "ocean" ? "selected" : ""}>${tr("أزرق محيطي", "Ocean blue")}</option><option value="mint" ${state.accent === "mint" ? "selected" : ""}>${tr("نعناعي", "Mint")}</option><option value="rose" ${state.accent === "rose" ? "selected" : ""}>${tr("وردي", "Rose")}</option></select></label><p class="field-hint">${tr("تُحفظ تفضيلات اللغة والمظهر ولون التمييز على هذا الجهاز فقط.", "Language and theme preferences are stored on this device only.")}</p></section><section class="settings-card"><div class="section-heading"><h2>${tr("اقتراحاتي", "My suggestions")}</h2><button class="quiet-button" type="button" data-action="load-mine-suggestions">${tr("عرض الحالة", "View status")}</button></div><div id="mineSuggestions"></div></section>${u.role === "admin" ? `<section class="settings-card"><div class="section-heading"><h2>${tr("مراجعة اقتراحات الألعاب", "Game suggestions review")}</h2><button class="quiet-button" data-action="admin-suggestions">${tr("تحميل قائمة المراجعة", "Load queue")}</button></div><div id="adminSuggestions"></div></section>` : ""}<section class="settings-card"><h2>${tr("تسجيل الخروج", "Sign out")}</h2><button class="danger-button" type="button" data-action="logout">${tr("تسجيل الخروج من هذا الجهاز", "Sign out on this device")}</button></section></div>`;
   host.querySelector(".settings-grid").insertAdjacentHTML(
     "beforeend",
     `<section class="settings-card"><h2>${tr("حذف الحساب", "Delete account")}</h2><p class="field-hint">${tr("سيُحذف الحساب نهائيًا، بما في ذلك الرسائل التي أرسلتها أو استقبلتها، من قاعدة البيانات لدى جميع الأطراف. لا يمكن التراجع عن الحذف.", "Your account and all messages you sent or received will be permanently deleted from the database for everyone. This cannot be undone.")}</p><p class="field-hint">${tr("قد تبقى نسخ البيانات في النسخ الاحتياطية حتى انتهاء مدة احتفاظ المشغّل بها.", "Backup copies may remain until the operator's backup-retention period expires.")}</p><form class="stack-form" data-form="delete-account" autocomplete="off"><label>${tr("كلمة المرور الحالية", "Current password")}<input name="password" type="password" minlength="1" maxlength="128" autocomplete="current-password" required></label><label>${tr("اكتب اسم المستخدم لتأكيد الحذف", "Type your username to confirm")}<input name="confirm_username" maxlength="24" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${esc(u.username)}" required></label><p class="form-error" data-error hidden></p><button class="danger-button" type="submit">${tr("حذف الحساب نهائيًا", "Permanently delete account")}</button></form></section>`,
@@ -1267,6 +1369,13 @@ $("page-settings").addEventListener("change", (e) => {
   if (e.target.id === "prefTheme") {
     state.theme = e.target.value;
     setPref("theme", state.theme);
+    setTheme();
+  }
+  if (e.target.id === "prefAccent") {
+    state.accent = ["violet", "ocean", "mint", "rose"].includes(e.target.value)
+      ? e.target.value
+      : "violet";
+    setPref("accent", state.accent);
     setTheme();
   }
 });
@@ -1464,8 +1573,9 @@ function openConversationView(user) {
   $("conversationEmpty").hidden = true;
   $("page-messages").classList.add("conversation-open");
   $("conversationProfile").innerHTML =
-    `${avatar(user.avatar_url, user.display_name)}<span>${who(user)} <small>@${esc(user.username)}</small></span>`;
+    `${avatar(user.avatar_url, user.display_name)}<span><bdi>${who(user)}</bdi><small dir="ltr">@${esc(user.username)}</small></span>`;
   $("messageLog").replaceChildren();
+  $("appScreen").classList.add("dm-open");
   $("messageInput").value = "";
   renderThreadList();
   api(`/api/messages/${encodeURIComponent(user.username)}/read`, {
@@ -1547,21 +1657,23 @@ $("messageForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = $("messageInput"),
     text = input.value;
-  if (!text.trim() || !state.activeThread) return;
+  const form = e.currentTarget;
+  if (!text.trim() || !state.activeThread || form.dataset.sending === "1") return;
   const username = state.activeThread;
-  $("messageSend").disabled = true;
+  form.dataset.sending = "1";
   try {
     const d = await api(`/api/messages/${encodeURIComponent(username)}`, {
       method: "POST",
       body: { body: text },
     });
     input.value = "";
+    input.style.height = "";
     appendMessages([d.message]);
     loadThreads();
   } catch (e) {
     showError(e);
   } finally {
-    $("messageSend").disabled = false;
+    form.dataset.sending = "";
   }
 });
 function startMessagePolling() {
@@ -1574,6 +1686,7 @@ function startMessagePolling() {
 }
 $("backToThreads").addEventListener("click", () => {
   $("page-messages").classList.remove("conversation-open");
+  $("appScreen").classList.remove("dm-open");
   $("conversationPanel").hidden = true;
   $("conversationEmpty").hidden = false;
   state.activeThread = null;
@@ -1721,7 +1834,6 @@ document.addEventListener("click", async (e) => {
   switch (action) {
     case "go-bot":
       setPage("bot");
-      if (!state.round && state.botMode === "idle") startFlow();
       break;
     case "go-community":
       setPage("community");

@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#10131d" />
+    <meta name="theme-color" content="#0d111b" />
     <meta
       name="description"
       content="mr.typing — تمرّن، تقدّم، وتحدَّ أصدقاءك في الكتابة."
@@ -133,23 +133,8 @@
               />
               <div class="header-copy">
                 <h1 id="botName">رفيق الكتابة</h1>
-                <p id="botStatus">جاهز لجولتك التالية</p>
+                <p id="botStatus">اكتب «ابدأ» لبدء التدريب</p>
               </div>
-              <button id="stopBotButton" class="quiet-button" type="button">
-                وقف</button
-              ><button
-                id="botSettingsButton"
-                class="icon-button"
-                type="button"
-                aria-label="تخصيص البوت"
-              >
-                <svg viewBox="0 0 24 24">
-                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path
-                    d="m19 13 2 1-2 4-2-1-2 1v2H9v-2l-2-1-2 1-2-4 2-1v-2l-2-1 2-4 2 1 2-1V4h6v2l2 1 2-1 2 4-2 1v2Z"
-                  />
-                </svg>
-              </button>
             </header>
             <div
               id="botLog"
@@ -180,23 +165,13 @@
                 id="botInput"
                 rows="1"
                 dir="auto"
-                aria-label="رسالة أو إجابة التدريب"
-                placeholder="اكتب ابدا…"
+                aria-label="اكتب أمرًا أو إجابة التدريب"
+                placeholder="اكتب أمرًا أو إجابة…"
                 maxlength="1200"
+                enterkeyhint="send"
                 autocapitalize="off"
                 spellcheck="false"
-              ></textarea
-              ><button
-                id="botSend"
-                class="send-button"
-                type="submit"
-                aria-label="إرسال"
-              >
-                <svg viewBox="0 0 24 24">
-                  <path d="m3 11 18-8-7 18-3-7-8-3Z" />
-                  <path d="m11 14 5-6" />
-                </svg>
-              </button>
+              ></textarea>
             </form>
           </section>
           <section
@@ -263,18 +238,8 @@
                   dir="auto"
                   aria-label="رسالة خاصة"
                   placeholder="اكتب رسالة…"
-                ></textarea
-                ><button
-                  id="messageSend"
-                  class="send-button"
-                  type="submit"
-                  aria-label="إرسال"
-                >
-                  <svg viewBox="0 0 24 24">
-                    <path d="m3 11 18-8-7 18-3-7-8-3Z" />
-                    <path d="m11 14 5-6" />
-                  </svg>
-                </button>
+                  enterkeyhint="send"
+                ></textarea>
               </form>
             </section>
             <div id="conversationEmpty" class="conversation-empty">

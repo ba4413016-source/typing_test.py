@@ -59,6 +59,56 @@ class FrontendContractTests(unittest.TestCase):
             self.assertIn("<svg", content)
             self.assertNotIn("<script", content.lower())
 
+    def test_bot_and_messages_send_from_keyboard_without_screen_arrows(self):
+        script = (ROOT / "static/app.js").read_text()
+        for removed_control in (
+            'id="botSend"',
+            'id="messageSend"',
+            'id="stopBotButton"',
+            'id="botSettingsButton"',
+        ):
+            self.assertNotIn(removed_control, self.html)
+        self.assertIn('enterkeyhint="send"', self.html)
+        self.assertIn('bindKeyboardComposer("botInput")', script)
+        self.assertIn('bindKeyboardComposer("messageInput")', script)
+        self.assertIn("sentences medium", script)
+        self.assertIn('strip.className = "result-strip"', script)
+        for metric in (
+            "result.wpm",
+            "result.accuracy",
+            "result.points",
+            "result.penalty",
+        ):
+            self.assertIn(metric, script)
+        self.assertNotIn("result.error_count", script)
+
+    def test_stop_during_loading_or_submit_is_deferred(self):
+        script = (ROOT / "static/app.js").read_text()
+        self.assertIn("stopAfterCurrent: false", script)
+        self.assertIn("state.stopAfterCurrent = true", script)
+        self.assertIn("else if (state.stopAfterCurrent)", script)
+        self.assertIn("await stopBot({ silent: true })", script)
+
+    def test_community_sections_grow_with_content_and_accent_choices_exist(self):
+        css = (ROOT / "static/style.css").read_text()
+        section_gap = re.search(r"\.section-gap\s*\{([^}]*)\}", css).group(1)
+        self.assertNotIn("height", section_gap)
+        self.assertIn(".card.section-gap > .section-heading", css)
+        for accent in ("ocean", "mint", "rose"):
+            self.assertIn(f'data-accent="{accent}"', css)
+        self.assertIn('id="prefAccent"', (ROOT / "static/app.js").read_text())
+        self.assertIn(".app-screen.dm-open #bottomNav", css)
+
+    def test_live_accuracy_aligns_edits_and_dm_profile_names_can_shrink(self):
+        script = (ROOT / "static/app.js").read_text()
+        css = (ROOT / "static/style.css").read_text()
+        self.assertIn("function scoreLiveText(expectedText, typedText)", script)
+        self.assertIn('normalize("NFC")', script)
+        self.assertIn("score.accuracy.toFixed(1)", script)
+        self.assertIn("<bdi>${who(user)}</bdi>", script)
+        self.assertIn(".conversation-profile > span > bdi", css)
+        self.assertIn("text-overflow: ellipsis", css)
+
 
 if __name__ == "__main__":
     unittest.main()

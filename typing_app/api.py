@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 from contextlib import asynccontextmanager
@@ -17,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from .config import Settings
 from .database import initialize_database, make_engine, make_session_factory
-from .game_engine import generate_target, score_attempt
+from .game_engine import generate_target, score_attempt, warm_word_corpora
 from .models import (
     Attempt,
     Block,
@@ -389,6 +390,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         initialize_database(engine)
+        await asyncio.to_thread(warm_word_corpora)
         if settings.admin_username and settings.admin_password:
             try:
                 username = normalize_username(settings.admin_username)
