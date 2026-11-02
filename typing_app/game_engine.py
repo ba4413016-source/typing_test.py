@@ -433,6 +433,12 @@ def _corpus_words(language: str) -> tuple[str, ...]:
     return tuple(accepted)
 
 
+def warm_word_corpora() -> None:
+    """Populate the per-process word cache before a user requests a round."""
+    _corpus_words("ar")
+    _corpus_words("en")
+
+
 def _pick_words(
     language: str, count: int, rng: Any, length_range: tuple[int, int] | None = None
 ) -> list[str]:
