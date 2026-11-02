@@ -1,5 +1,6 @@
 from collections import deque
 from io import BytesIO
+import asyncio
 import os
 import time
 import unittest
@@ -13,6 +14,7 @@ from typing_app.config import Settings
 from typing_app.database import initialize_database, make_engine, make_session_factory
 from typing_app.models import User
 from typing_app.security import (
+    MessageImageBodyLimitMiddleware,
     RateLimiter,
     clean_text,
     normalize_username,
@@ -60,6 +62,41 @@ class SecurityUnitTests(unittest.TestCase):
         for raw in (b"<svg><script>bad</script></svg>", b"x" * (2 * 1024 * 1024 + 1)):
             with self.assertRaises(ValueError):
                 normalized_avatar(raw)
+
+    def test_chunked_message_image_body_is_stopped_at_the_stream_limit(self):
+        incoming = iter(
+            (
+                {"type": "http.request", "body": b"1234", "more_body": True},
+                {"type": "http.request", "body": b"5678", "more_body": True},
+            )
+        )
+        responses = []
+        completed_inner_app = False
+
+        async def receive():
+            return next(incoming)
+
+        async def send(message):
+            responses.append(message)
+
+        async def app(_scope, inner_receive, _send):
+            nonlocal completed_inner_app
+            while True:
+                message = await inner_receive()
+                if message["type"] != "http.request" or not message.get("more_body"):
+                    break
+            completed_inner_app = True
+
+        middleware = MessageImageBodyLimitMiddleware(app, max_bytes=6)
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/messages/receiver/image",
+            "headers": [],
+        }
+        asyncio.run(middleware(scope, receive, send))
+        self.assertFalse(completed_inner_app)
+        self.assertEqual(responses[0]["status"], 413)
 
     def test_limiter_limits_requests_and_total_memory_keys(self):
         limiter = RateLimiter()

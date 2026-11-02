@@ -1,10 +1,10 @@
-const CACHE_NAME = "typing-test-shell-v1";
+const CACHE_NAME = "typing-test-shell-v3";
 const SHELL_URLS = [
   "/",
   "/manifest.json",
-  "/static/app.js",
+  "/static/app.js?v=20261102-linebyline",
   "/static/pwa.js",
-  "/static/style.css",
+  "/static/style.css?v=20261102-linebyline",
   "/static/brand.svg",
   "/apple-touch-icon.png",
   "/icon-192.png",

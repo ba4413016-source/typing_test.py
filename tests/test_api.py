@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from typing_app.api import create_app
 from typing_app.config import Settings
-from typing_app.models import Attempt, LoginSession, Message, PracticeRound, User
+from typing_app.models import Attempt, ChallengeParticipant, LoginSession, Media, Message, PracticeRound, User
 
 
 class ApiTests(unittest.TestCase):
@@ -192,6 +192,185 @@ class ApiTests(unittest.TestCase):
         private_view = self.client.get("/api/messages/sender")
         self.assertEqual(private_view.status_code, 200)
         self.assertEqual(private_view.json()["messages"], [])
+
+    def test_private_image_messages_are_reencoded_and_only_visible_to_chat_members(self):
+        self.register("photo_sender")
+        self.client.cookies.clear()
+        self.register("photo_receiver")
+        self.client.cookies.clear()
+        sender = self.login("photo_sender")
+        image = Image.new("RGB", (32, 16), "royalblue")
+        raw = BytesIO()
+        image.save(raw, format="PNG")
+        response = self.client.post(
+            "/api/messages/photo_receiver/image",
+            headers=self.csrf(sender),
+            files={"image": ("picture.png", raw.getvalue(), "image/png")},
+            data={"caption": "رحلة جميلة"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        message = response.json()["message"]
+        self.assertEqual(message["body"], "رحلة جميلة")
+        self.assertIn("/api/messages/media/", message["image_url"])
+        self.logout(sender)
+
+        receiver = self.login("photo_receiver")
+        received = self.client.get("/api/messages/photo_sender").json()["messages"]
+        self.assertEqual(received[0]["image_url"], message["image_url"])
+        image_response = self.client.get(message["image_url"])
+        self.assertEqual(image_response.status_code, 200, image_response.text)
+        self.assertEqual(image_response.headers["content-type"], "image/webp")
+        with Image.open(BytesIO(image_response.content)) as decoded:
+            self.assertEqual(decoded.size, (32, 16))
+        self.logout(receiver)
+
+        self.register("photo_outsider")
+        denied = self.client.get(message["image_url"])
+        self.assertEqual(denied.status_code, 404)
+
+    def test_image_upload_rejects_oversize_request_before_multipart_or_auth(self):
+        malformed_small = self.client.post(
+            "/api/messages/unused/image",
+            content=b"not multipart",
+            headers={"Content-Type": "multipart/form-data; boundary=unused"},
+        )
+        self.assertEqual(malformed_small.status_code, 401, malformed_small.text)
+        oversized = self.client.post(
+            "/api/messages/unused/image",
+            content=b"x" * (6 * 1024 * 1024 + 1),
+            headers={"Content-Type": "multipart/form-data; boundary=unused"},
+        )
+        self.assertEqual(oversized.status_code, 413, oversized.text)
+
+    def test_deleting_message_recipient_removes_private_image_media(self):
+        self.register("media_owner")
+        self.client.cookies.clear()
+        self.register("media_recipient")
+        self.client.cookies.clear()
+        owner = self.login("media_owner")
+        source = BytesIO()
+        Image.new("RGB", (20, 10), "orange").save(source, format="PNG")
+        uploaded = self.client.post(
+            "/api/messages/media_recipient/image",
+            headers=self.csrf(owner),
+            files={"image": ("private.png", source.getvalue(), "image/png")},
+        )
+        self.assertEqual(uploaded.status_code, 200, uploaded.text)
+        media_id = uploaded.json()["message"]["image_url"].rsplit("/", 1)[1]
+        self.logout(owner)
+
+        recipient = self.login("media_recipient")
+        removed = self.client.request(
+            "DELETE",
+            "/api/me",
+            headers=self.csrf(recipient),
+            json={"password": "correct-horse-123", "confirm_username": "media_recipient"},
+        )
+        self.assertEqual(removed.status_code, 200, removed.text)
+        with self.client.app.state.session_factory() as db:
+            self.assertIsNone(db.get(Media, media_id))
+            self.assertIsNone(db.scalar(select(Message).where(Message.media_id == media_id)))
+
+    def test_private_image_upload_rejects_invalid_data_and_blocks(self):
+        self.register("image_blocker")
+        self.client.cookies.clear()
+        self.register("image_blocked")
+        self.client.cookies.clear()
+        blocker = self.login("image_blocker")
+        invalid = self.client.post(
+            "/api/messages/image_blocked/image",
+            headers=self.csrf(blocker),
+            files={"image": ("bad.png", b"not an image", "image/png")},
+        )
+        self.assertEqual(invalid.status_code, 422)
+        self.assertEqual(
+            self.client.post(
+                "/api/users/image_blocked/block", headers=self.csrf(blocker)
+            ).status_code,
+            200,
+        )
+        blocked_upload = self.client.post(
+            "/api/messages/image_blocked/image",
+            headers=self.csrf(blocker),
+            files={"image": ("good.png", b"not an image", "image/png")},
+        )
+        self.assertEqual(blocked_upload.status_code, 403)
+
+    def test_direct_challenge_is_sent_in_existing_private_thread_and_prejoins_both_users(self):
+        self.register("challenge_sender")
+        self.client.cookies.clear()
+        self.register("challenge_receiver")
+        self.client.cookies.clear()
+        sender = self.login("challenge_sender")
+        sent = self.client.post(
+            "/api/messages/challenge_receiver",
+            json={"body": "مستعد للتحدي؟"},
+            headers=self.csrf(sender),
+        )
+        self.assertEqual(sent.status_code, 200, sent.text)
+        created = self.client.post(
+            "/api/challenges",
+            headers=self.csrf(sender),
+            json={
+                "game": "sentences",
+                "difficulty": "medium",
+                "language": "ar",
+                "topic": "mixed",
+                "visibility": "private",
+                "max_players": 2,
+                "round_count": 3,
+                "judge_mode": "points",
+                "event_kind": "challenge",
+                "opponent_username": "challenge_receiver",
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        challenge = created.json()["challenge"]
+        self.assertEqual(challenge["visibility"], "private")
+        self.assertEqual(len(challenge["participants"]), 2)
+        self.assertIsNone(challenge["round"])
+        with self.client.app.state.session_factory() as db:
+            participants = db.query(ChallengeParticipant).filter_by(challenge_id=challenge["id"]).count()
+            invite = db.query(Message).filter_by(challenge_token=challenge["token"]).one()
+            self.assertEqual(participants, 2)
+            receiver_user = db.scalar(select(User).where(User.username == "challenge_receiver"))
+            self.assertEqual(invite.recipient_id, receiver_user.id)
+        self.logout(sender)
+
+        receiver = self.login("challenge_receiver")
+        inbox = self.client.get("/api/messages/challenge_sender").json()["messages"]
+        invitation = next(m for m in inbox if m["challenge_token"] == challenge["token"])
+        self.assertIn("دعوة", invitation["body"])
+        preview = self.client.get(f'/api/challenges/{challenge["token"]}')
+        self.assertEqual(preview.status_code, 200, preview.text)
+        self.assertEqual(len(preview.json()["challenge"]["participants"]), 2)
+        self.assertIsNone(preview.json()["challenge"]["round"])
+
+        self.logout(receiver)
+        sender = self.login("challenge_sender")
+        started = self.client.post(
+            f'/api/challenges/{challenge["token"]}/start', headers=self.csrf(sender)
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+
+    def test_direct_challenge_requires_an_open_unblocked_conversation(self):
+        self.register("challenge_guard")
+        self.client.cookies.clear()
+        self.register("challenge_peer")
+        self.client.cookies.clear()
+        sender = self.login("challenge_guard")
+        payload = {
+            "game": "sentences", "difficulty": "medium", "language": "ar",
+            "visibility": "private", "max_players": 2, "round_count": 2,
+            "judge_mode": "points", "event_kind": "challenge", "topic": "mixed",
+            "opponent_username": "challenge_peer",
+        }
+        no_thread = self.client.post("/api/challenges", headers=self.csrf(sender), json=payload)
+        self.assertEqual(no_thread.status_code, 403)
+        self.client.post("/api/messages/challenge_peer", headers=self.csrf(sender), json={"body": "hello"})
+        self.client.post("/api/users/challenge_peer/block", headers=self.csrf(sender))
+        blocked = self.client.post("/api/challenges", headers=self.csrf(sender), json=payload)
+        self.assertEqual(blocked.status_code, 403)
 
     def test_account_deletion_removes_messages_in_both_directions(self):
         self.register("erase_user")

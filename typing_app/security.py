@@ -153,3 +153,119 @@ def normalized_avatar(raw: bytes) -> bytes:
         Image.DecompressionBombWarning,
     ) as exc:
         raise ValueError("The uploaded file is not a valid supported image.") from exc
+
+
+
+def normalized_message_image(raw: bytes) -> bytes:
+    """Validate and resize a message image without cropping its aspect ratio."""
+    if not raw or len(raw) > 5 * 1024 * 1024:
+        raise ValueError("Upload an image no larger than 5 MB.")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(raw)) as image:
+                if image.format not in {"JPEG", "PNG", "WEBP"}:
+                    raise ValueError("Only JPEG, PNG and WebP images are supported.")
+                if image.width > 4096 or image.height > 4096:
+                    raise ValueError("Image dimensions must not exceed 4096×4096.")
+                image.load()
+                image = ImageOps.exif_transpose(image).convert("RGB")
+                image.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+                output = BytesIO()
+                image.save(output, format="WEBP", quality=84, method=4)
+                return output.getvalue()
+    except (
+        UnidentifiedImageError,
+        OSError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ) as exc:
+        raise ValueError("The uploaded file is not a valid supported image.") from exc
+
+
+class _MessageImageBodyTooLarge(Exception):
+    pass
+
+
+class MessageImageBodyLimitMiddleware:
+    """Bound private-image upload bodies before multipart parsing or buffering."""
+
+    def __init__(self, app, max_bytes: int = 6 * 1024 * 1024):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    @staticmethod
+    def _is_message_image_upload(scope) -> bool:
+        if scope.get("type") != "http" or scope.get("method") != "POST":
+            return False
+        parts = scope.get("path", "").strip("/").split("/")
+        return (
+            len(parts) == 4
+            and parts[0] == "api"
+            and parts[1] == "messages"
+            and bool(parts[2])
+            and parts[3] == "image"
+        )
+
+    async def _reject(self, send, status: int = 413) -> None:
+        body = (
+            b'{"detail":"Upload request exceeds the allowed size."}'
+            if status == 413
+            else b'{"detail":"Invalid Content-Length."}'
+        )
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                    (b"cache-control", b"no-store"),
+                    (b"x-content-type-options", b"nosniff"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send):
+        if not self._is_message_image_upload(scope):
+            await self.app(scope, receive, send)
+            return
+
+        for name, value in scope.get("headers", []):
+            if name.lower() == b"content-length":
+                try:
+                    length = int(value)
+                except (TypeError, ValueError):
+                    await self._reject(send, 400)
+                    return
+                if length < 0:
+                    await self._reject(send, 400)
+                    return
+                if length > self.max_bytes:
+                    await self._reject(send)
+                    return
+
+        received = 0
+        response_started = False
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _MessageImageBodyTooLarge
+            return message
+
+        async def tracked_send(message):
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracked_send)
+        except _MessageImageBodyTooLarge:
+            if not response_started:
+                await self._reject(send)

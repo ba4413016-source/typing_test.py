@@ -4,7 +4,12 @@ import unittest
 import unicodedata
 import regex
 
-from typing_app.game_engine import _corpus_words, generate_target, score_attempt
+from typing_app.game_engine import (
+    _TOPIC_PARTS,
+    _corpus_words,
+    generate_target,
+    score_attempt,
+)
 
 
 class TargetGenerationTests(unittest.TestCase):
@@ -31,6 +36,24 @@ class TargetGenerationTests(unittest.TestCase):
                             self.assertTrue(regex.search(r"\p{Latin}", result.target))
                         if game == "news":
                             self.assertFalse(result.metadata["factual_news"])
+
+    def test_explicit_topics_always_start_with_a_matching_topic_scene(self):
+        for topic in _TOPIC_PARTS:
+            for language in ("ar", "en"):
+                scenes = _TOPIC_PARTS[topic][language][0]
+                for game in ("sentences", "stories", "news"):
+                    with self.subTest(topic=topic, language=language, game=game):
+                        result = generate_target(
+                            game,
+                            "easy",
+                            language,
+                            rng=random.Random(f"{topic}-{language}-{game}"),
+                            topic=topic,
+                        )
+                        self.assertEqual(result.metadata["topic"], topic)
+                        self.assertTrue(
+                            any(result.target.startswith(scene) for scene in scenes)
+                        )
 
     def test_repeat_display_and_target_at_minimum_and_maximum(self):
         for language in ("ar", "en"):

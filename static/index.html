@@ -24,8 +24,8 @@
       href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/style.css" />
-    <script type="module" src="/static/app.js"></script>
+    <link rel="stylesheet" href="/static/style.css?v=20261102-linebyline" />
+    <script type="module" src="/static/app.js?v=20261102-linebyline"></script>
   </head>
   <body>
     <div id="appShell" class="app-shell">
@@ -235,30 +235,39 @@
                 <p id="botStatus">اكتب «ابدأ» لبدء التدريب</p>
               </div>
             </header>
-            <div
-              id="botLog"
-              class="chat-log"
-              role="log"
-              aria-live="polite"
-              aria-relevant="additions text"
-            ></div>
-            <section
-              id="roundPanel"
-              class="round-panel"
-              hidden
-              aria-label="جولة التدريب"
-            >
-              <div class="round-meta">
-                <span id="roundLabel"></span><span id="roundCounter"></span>
-              </div>
-              <div id="targetText" class="target-text" dir="auto"></div>
-              <p id="roundHint" class="field-hint"></p>
-              <div id="liveStats" class="live-stats">
-                <span id="liveSpeed">0 WPM</span
-                ><span id="liveAccuracy">100%</span
-                ><span id="roundState"></span>
-              </div>
-            </section>
+            <div class="bot-stage">
+              <div
+                id="botLog"
+                class="chat-log"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+              ></div>
+              <section
+                id="roundPanel"
+                class="round-panel"
+                hidden
+                aria-label="جولة التدريب"
+              >
+                <div class="round-meta">
+                  <div class="round-title">
+                    <span id="roundLabel"></span>
+                    <span id="roundCounter" class="round-counter"></span>
+                  </div>
+                  <div class="round-tools">
+                    <button id="speakRoundButton" class="quiet-button" type="button" data-action="speak-round">استمع للنص</button>
+                    <button id="soundToggleButton" class="quiet-button" type="button" data-action="toggle-key-sound" aria-pressed="false">النغمة: صامتة</button>
+                  </div>
+                </div>
+                <div id="targetText" class="target-text" dir="auto" aria-live="off"></div>
+                <p id="roundHint" class="field-hint"></p>
+                <div id="liveStats" class="live-stats">
+                  <span id="liveSpeed">0 WPM</span
+                  ><span id="liveAccuracy">100%</span
+                  ><span id="roundState"></span>
+                </div>
+              </section>
+            </div>
             <form id="botForm" class="composer" autocomplete="off">
               <textarea
                 id="botInput"
@@ -322,6 +331,14 @@
                   class="conversation-profile"
                   type="button"
                 ></button>
+                <div class="conversation-tools">
+                  <button class="icon-button conversation-tool" type="button" data-action="open-chat-appearance" aria-label="مظهر المحادثة" title="مظهر المحادثة">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.2a2.3 2.3 0 0 0 1.4-4.1 1.7 1.7 0 0 1 1-3h1.2A4.2 4.2 0 0 0 21 9.7C21 6 17 3 12 3Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="11" cy="7" r="1"/><circle cx="15" cy="8" r="1"/></svg>
+                  </button>
+                  <button id="directChallengeButton" class="primary-button conversation-challenge" type="button" data-action="direct-challenge" aria-label="تحدَّ هذا المستخدم" title="تحدَّ هذا المستخدم">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v4a4 4 0 0 1-8 0V4ZM8 6H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 0v5m-4 3h8m-7-3h6v3H9z"/></svg><span id="chatChallengeLabel">تحدٍّ</span>
+                  </button>
+                </div>
               </header>
               <div
                 id="messageLog"
@@ -330,6 +347,10 @@
                 aria-live="polite"
               ></div>
               <form id="messageForm" class="composer">
+                <button id="messageImageButton" class="icon-button message-attach" type="button" data-action="select-message-image" aria-label="إرفاق صورة" title="إرفاق صورة">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21.4 11.1-8.9 8.9a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+                </button>
+                <input id="messageImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
                 <textarea
                   id="messageInput"
                   rows="1"

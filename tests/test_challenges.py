@@ -70,6 +70,30 @@ class ChallengeRegressionTests(unittest.TestCase):
         self.assertEqual(listed[0]["token"], challenge["token"])
         self.assertIsNone(listed[0]["round"])
 
+    def test_old_but_still_active_public_challenge_remains_listed(self):
+        challenge = self.create(self.register("host"), "public")
+        with self.client.app.state.session_factory() as db:
+            row = db.get(Challenge, challenge["id"])
+            row.created_at = utcnow() - timedelta(days=9)
+            row.status = "active"
+            row.deadline_at = utcnow() + timedelta(hours=1)
+            db.commit()
+        self.register("viewer")
+        listed = self.client.get("/api/challenges").json()["challenges"]
+        self.assertEqual([item["token"] for item in listed], [challenge["token"]])
+
+    def test_old_active_challenge_past_its_round_deadline_is_not_kept_forever(self):
+        challenge = self.create(self.register("host"), "public")
+        with self.client.app.state.session_factory() as db:
+            row = db.get(Challenge, challenge["id"])
+            row.created_at = utcnow() - timedelta(days=9)
+            row.status = "active"
+            row.deadline_at = utcnow() - timedelta(hours=1)
+            db.commit()
+        self.register("viewer")
+        listed = self.client.get("/api/challenges").json()["challenges"]
+        self.assertEqual(listed, [])
+
     def test_expired_lobby_cannot_start_and_expiry_is_persisted(self):
         host = self.register("host")
         challenge = self.create(host)

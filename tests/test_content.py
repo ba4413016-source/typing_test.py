@@ -47,7 +47,49 @@ class FrontendContractTests(unittest.TestCase):
         self.assertNotIn("Coming soon", self.html)
         self.assertNotIn("قيد التجهيز", self.html)
         self.assertIn('id="authForm"', self.html)
-        self.assertIn('src="/static/app.js"', self.html)
+        self.assertRegex(self.html, r'src="/static/app\.js(?:\?[^"]*)?"')
+
+    def test_private_chat_has_challenges_images_themes_and_fullscreen_keyboard_layout(self):
+        for control in (
+            'id="directChallengeButton"',
+            'data-action="direct-challenge"',
+            'data-action="open-chat-appearance"',
+            'id="messageImageButton"',
+            'id="messageImageInput"',
+        ):
+            self.assertIn(control, self.html)
+        for behavior in (
+            "openChallengeInvitation",
+            "uploadMessageImage",
+            "set-chat-background",
+            "opponent_username",
+            'setProperty("--app-top", "0px")',
+        ):
+            self.assertIn(behavior, (ROOT / "static/app.js").read_text())
+        css = (ROOT / "static/style.css").read_text()
+        self.assertIn(".app-screen.dm-open .messages-page", css)
+        self.assertIn('data-chat-background="aurora"', css)
+        self.assertIn(".message-image", css)
+
+    def test_round_counter_exists_and_private_dom_is_cleared_on_session_reset(self):
+        for control in (
+            'id="roundCounter"',
+            'id="speakRoundButton"',
+            'id="soundToggleButton"',
+        ):
+            self.assertIn(control, self.html)
+        self.assertNotIn("${tr(", self.html)
+        script = (ROOT / "static/app.js").read_text()
+        clear_runtime = re.search(
+            r"function clearRuntime\(\) \{(.*?)\n\}", script, re.S
+        ).group(1)
+        for reset in (
+            '$("messageLog").replaceChildren()',
+            '$("page-messages").classList.remove("conversation-open")',
+            '$("page-community").replaceChildren()',
+            '$("botLog").replaceChildren()',
+        ):
+            self.assertIn(reset, clear_runtime)
 
     def test_account_deletion_and_message_policy_are_visible_in_settings(self):
         script = (ROOT / "static/app.js").read_text()
