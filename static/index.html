@@ -7,6 +7,11 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0d111b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Typing Test" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <meta
       name="description"
       content="mr.typing — تمرّن، تقدّم، وتحدَّ أصدقاءك في الكتابة."
@@ -24,7 +29,92 @@
   </head>
   <body>
     <div id="appShell" class="app-shell">
-      <section id="authScreen" class="auth-screen">
+      <section
+        id="welcomeScreen"
+        class="welcome-screen"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcomeTitle"
+      >
+        <div class="welcome-card">
+          <div class="welcome-brand">
+            <img src="/icon-192.png" alt="" class="welcome-logo" />
+            <span>mr.<strong>typing</strong></span>
+          </div>
+          <p
+            class="welcome-kicker"
+            data-welcome-ar="أهلًا وسهلًا بك"
+            data-welcome-en="WELCOME"
+          >
+            أهلًا وسهلًا بك
+          </p>
+          <h1
+            id="welcomeTitle"
+            data-welcome-ar="مرحبًا بك في mr.typing"
+            data-welcome-en="Welcome to mr.typing"
+          >
+            مرحبًا بك في mr.typing
+          </h1>
+          <p
+            class="welcome-copy"
+            data-welcome-ar="مساحة هادئة للتدريب، وتحسين سرعتك، ومشاركة التحدي مع أصدقائك."
+            data-welcome-en="A calm space to practice, improve your speed, and challenge your friends."
+          >
+            مساحة هادئة للتدريب، وتحسين سرعتك، ومشاركة التحدي مع أصدقائك.
+          </p>
+          <div class="welcome-install-callout">
+            <span class="welcome-install-symbol" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5" />
+              </svg>
+            </span>
+            <div>
+              <strong
+                data-welcome-ar="لتجربة أفضل على هاتفك"
+                data-welcome-en="A better experience on your phone"
+                >لتجربة أفضل على هاتفك</strong
+              >
+              <p
+                data-welcome-ar="أضف الموقع إلى الشاشة الرئيسية لفتحه بملء الشاشة والوصول إليه بسرعة."
+                data-welcome-en="Add the site to your Home Screen for a full-screen view and quick access."
+              >
+                أضف الموقع إلى الشاشة الرئيسية لفتحه بملء الشاشة والوصول إليه بسرعة.
+              </p>
+            </div>
+          </div>
+          <div
+            id="installInstructions"
+            class="install-instructions"
+            role="note"
+            aria-live="polite"
+            hidden
+          ></div>
+          <div class="welcome-actions">
+            <button id="installAppButton" class="primary-button" type="button">
+              <span
+                data-welcome-ar="أضف إلى الشاشة الرئيسية"
+                data-welcome-en="Add to Home Screen"
+                >أضف إلى الشاشة الرئيسية</span
+              >
+            </button>
+            <button id="welcomeContinueButton" class="secondary-button" type="button">
+              <span
+                data-welcome-ar="المتابعة إلى الموقع"
+                data-welcome-en="Continue to the site"
+                >المتابعة إلى الموقع</span
+              >
+            </button>
+          </div>
+          <p
+            class="welcome-note"
+            data-welcome-ar="يمكنك المتابعة الآن دون تثبيت."
+            data-welcome-en="You can continue without installing."
+          >
+            يمكنك المتابعة الآن دون تثبيت.
+          </p>
+        </div>
+      </section>
+      <section id="authScreen" class="auth-screen" inert>
         <div class="auth-intro">
           <img src="/static/brand.svg" alt="" class="brand-large" />
           <p class="eyebrow">mr.typing</p>
@@ -88,7 +178,7 @@
         </div>
       </section>
 
-      <div id="appScreen" class="app-screen" hidden>
+      <div id="appScreen" class="app-screen" hidden inert>
         <header id="appHeader" class="app-header">
           <button
             id="selfProfileButton"
@@ -125,6 +215,15 @@
             hidden
           >
             <header class="bot-header">
+              <button
+                id="exitBotButton"
+                class="icon-button bot-back"
+                type="button"
+                aria-label="العودة إلى التطبيق"
+                title="العودة إلى التطبيق"
+              >
+                <svg viewBox="0 0 24 24"><path d="m14 5-7 7 7 7" /></svg>
+              </button>
               <img
                 id="botAvatar"
                 class="avatar"
@@ -314,5 +413,6 @@
       <div id="modalBody" class="modal-body"></div>
     </dialog>
     <div id="toast" class="toast" role="status" hidden></div>
+    <script src="/static/pwa.js" defer></script>
   </body>
 </html>

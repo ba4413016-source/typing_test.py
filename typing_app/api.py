@@ -546,12 +546,54 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 media_type="application/json",
             )
 
+    app_root = Path(__file__).resolve().parent.parent
+
     @app.get("/")
     def index():
-        path = Path(__file__).resolve().parent.parent / "static" / "index.html"
+        path = app_root / "static" / "index.html"
         if path.is_file():
             return FileResponse(path)
         raise HTTPException(404, "index.html not found")
+
+    @app.get("/manifest.json", include_in_schema=False)
+    def web_manifest():
+        return FileResponse(
+            app_root / "manifest.json",
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    @app.get("/sw.js", include_in_schema=False)
+    def service_worker():
+        return FileResponse(
+            app_root / "sw.js",
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"},
+        )
+
+    @app.get("/apple-touch-icon.png", include_in_schema=False)
+    def apple_touch_icon():
+        return FileResponse(
+            app_root / "apple-touch-icon.png",
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.get("/icon-192.png", include_in_schema=False)
+    def pwa_icon_192():
+        return FileResponse(
+            app_root / "icon-192.png",
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    @app.get("/icon-512.png", include_in_schema=False)
+    def pwa_icon_512():
+        return FileResponse(
+            app_root / "icon-512.png",
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
 
     static_dir = Path(__file__).resolve().parent.parent / "static"
     if static_dir.is_dir():

@@ -103,6 +103,8 @@ function setLanguage() {
   document.documentElement.lang = state.lang;
   document.documentElement.dir = state.lang === "ar" ? "rtl" : "ltr";
   $("authLanguage").textContent = state.lang === "ar" ? "English" : "العربية";
+  $("exitBotButton").setAttribute("aria-label", tr("العودة إلى التطبيق", "Back to app"));
+  $("exitBotButton").title = tr("العودة إلى التطبيق", "Back to app");
   document
     .querySelectorAll("[data-nav]")
     .forEach(
@@ -1909,6 +1911,7 @@ $("bottomNav").addEventListener("click", (e) => {
   const b = e.target.closest("[data-page]");
   if (b) setPage(b.dataset.page);
 });
+$("exitBotButton").addEventListener("click", () => setPage("home"));
 $("closeModal").addEventListener("click", closeModal);
 $("modal").addEventListener("click", (e) => {
   if (e.target === $("modal")) closeModal();

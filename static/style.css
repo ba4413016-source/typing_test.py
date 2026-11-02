@@ -189,6 +189,135 @@ h4 {
   background: var(--bg);
 }
 
+.welcome-screen {
+  position: absolute;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 85% 12%, rgb(213 138 179 / 18%), transparent 48%),
+    radial-gradient(ellipse at 8% 88%, rgb(140 108 240 / 17%), transparent 45%),
+    var(--bg);
+}
+.welcome-card {
+  width: min(100%, 560px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 30px;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.welcome-brand strong {
+  color: var(--accent);
+}
+.welcome-logo {
+  width: 58px;
+  height: 58px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 8px 22px rgb(213 138 179 / 17%);
+}
+.welcome-kicker {
+  margin: 24px 0 7px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.welcome-card h1 {
+  margin: 0 0 10px;
+  font-size: clamp(1.6rem, 5vw, 2.25rem);
+  font-weight: 800;
+}
+.welcome-copy {
+  max-width: 50ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+.welcome-install-callout {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-soft);
+}
+.welcome-install-symbol {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.welcome-install-symbol svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.welcome-install-callout strong {
+  display: block;
+  margin: 1px 0 3px;
+  color: var(--text);
+}
+.welcome-install-callout p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.install-instructions {
+  margin: -8px 0 18px;
+  padding: 12px 14px;
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.install-instructions[hidden] {
+  display: none;
+}
+.welcome-actions {
+  display: grid;
+  gap: 10px;
+}
+.welcome-actions button {
+  width: 100%;
+  min-height: 50px;
+}
+.welcome-note {
+  margin: 13px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 .auth-screen {
   width: min(100%, 1040px);
   height: 100%;
@@ -937,19 +1066,27 @@ input[type="file"]::file-selector-button {
 .app-screen.bot-active #appHeader {
   display: none;
 }
+.app-screen.bot-active #bottomNav {
+  display: none;
+}
 .app-screen.bot-active #pageHost {
   min-height: 0;
+  flex: 1 1 0%;
 }
 .bot-header {
   display: flex;
-  min-height: 64px;
+  min-height: calc(64px + env(safe-area-inset-top));
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
-  padding: 8px max(14px, env(safe-area-inset-right)) 8px
+  padding: max(8px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right)) 8px
     max(14px, env(safe-area-inset-left));
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
+}
+.bot-header .bot-back {
+  flex: 0 0 44px;
 }
 .bot-header .header-copy {
   min-width: 0;

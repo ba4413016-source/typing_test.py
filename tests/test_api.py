@@ -448,6 +448,25 @@ class ApiTests(unittest.TestCase):
             "suggestion_review",
         )
 
+    def test_pwa_assets_are_served_from_origin_root(self):
+        expected_types = {
+            "/manifest.json": "application/manifest+json",
+            "/sw.js": "application/javascript",
+            "/static/pwa.js": "text/javascript",
+            "/apple-touch-icon.png": "image/png",
+            "/icon-192.png": "image/png",
+            "/icon-512.png": "image/png",
+        }
+        for path, media_type in expected_types.items():
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200, response.text[:200])
+                self.assertTrue(response.headers["content-type"].startswith(media_type))
+                self.assertGreater(len(response.content), 0)
+        self.assertEqual(
+            self.client.get("/sw.js").headers.get("service-worker-allowed"), "/"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

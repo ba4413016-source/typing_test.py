@@ -1,6 +1,9 @@
-from pathlib import Path
+import json
 import re
 import unittest
+from pathlib import Path
+
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -108,6 +111,65 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn("<bdi>${who(user)}</bdi>", script)
         self.assertIn(".conversation-profile > span > bdi", css)
         self.assertIn("text-overflow: ellipsis", css)
+
+    def test_pwa_manifest_icons_and_apple_home_screen_metadata(self):
+        for tag in (
+            '<meta name="apple-mobile-web-app-capable" content="yes" />',
+            '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />',
+            '<meta name="apple-mobile-web-app-title" content="Typing Test" />',
+            '<link rel="apple-touch-icon" href="/apple-touch-icon.png" />',
+            '<link rel="manifest" href="/manifest.json" />',
+        ):
+            self.assertIn(tag, self.html)
+
+        manifest = json.loads((ROOT / "manifest.json").read_text())
+        self.assertEqual(manifest["name"], "Typing Test App")
+        self.assertEqual(manifest["short_name"], "TypingTest")
+        self.assertEqual(manifest["start_url"], "/")
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(manifest["background_color"], "#ffffff")
+        self.assertEqual(manifest["theme_color"], "#d58ab3")
+        expected = {"/icon-192.png": (192, 192), "/icon-512.png": (512, 512)}
+        actual = {}
+        for item in manifest["icons"]:
+            with Image.open(ROOT / item["src"].lstrip("/")) as icon:
+                actual[item["src"]] = icon.size
+        self.assertEqual(actual, expected)
+        with Image.open(ROOT / "apple-touch-icon.png") as icon:
+            self.assertEqual(icon.size, (180, 180))
+
+    def test_service_worker_is_registered_and_does_not_cache_private_api(self):
+        worker = (ROOT / "sw.js").read_text()
+        pwa = (ROOT / "static/pwa.js").read_text()
+        self.assertIn(
+            'navigator.serviceWorker.register("/sw.js", { scope: "/" })', pwa
+        )
+        self.assertIn('url.pathname.startsWith("/api/")', worker)
+        self.assertIn('url.pathname.startsWith("/media/")', worker)
+        self.assertIn('request.mode === "navigate"', worker)
+        self.assertIn("self.clients.claim()", worker)
+
+    def test_first_visit_welcome_offers_install_instructions_and_continue(self):
+        pwa = (ROOT / "static/pwa.js").read_text()
+        self.assertIn('id="welcomeScreen"', self.html)
+        self.assertIn('id="installAppButton"', self.html)
+        self.assertIn('id="welcomeContinueButton"', self.html)
+        self.assertIn('id="installInstructions"', self.html)
+        self.assertIn("beforeinstallprompt", pwa)
+        self.assertIn("Add to Home Screen", self.html)
+        self.assertIn("typing.welcome-seen", pwa)
+        self.assertIn("في Safari", pwa)
+
+    def test_bot_chat_uses_full_screen_layout_with_a_return_button(self):
+        css = (ROOT / "static/style.css").read_text()
+        script = (ROOT / "static/app.js").read_text()
+        self.assertIn('id="exitBotButton"', self.html)
+        self.assertIn('$("exitBotButton").addEventListener("click", () => setPage("home"))', script)
+        self.assertRegex(
+            css,
+            r"\.app-screen\.bot-active #bottomNav\s*\{\s*display:\s*none;",
+        )
+        self.assertIn("env(safe-area-inset-top)", css)
 
 
 if __name__ == "__main__":
