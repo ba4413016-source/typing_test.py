@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from typing_app.api import create_app
 from typing_app.config import Settings
-from typing_app.models import Attempt, Message, PracticeRound, User
+from typing_app.models import Attempt, LoginSession, Message, PracticeRound, User
 
 
 class ApiTests(unittest.TestCase):
@@ -192,6 +192,64 @@ class ApiTests(unittest.TestCase):
         private_view = self.client.get("/api/messages/sender")
         self.assertEqual(private_view.status_code, 200)
         self.assertEqual(private_view.json()["messages"], [])
+
+    def test_account_deletion_removes_messages_in_both_directions(self):
+        self.register("erase_user")
+        self.client.cookies.clear()
+        peer = self.register("erase_peer")
+        received = self.client.post(
+            "/api/messages/erase_user",
+            json={"body": "sent to the account being deleted"},
+            headers=self.csrf(peer),
+        )
+        self.assertEqual(received.status_code, 200, received.text)
+        self.logout(peer)
+
+        account = self.login("erase_user")
+        sent = self.client.post(
+            "/api/messages/erase_peer",
+            json={"body": "sent by the account being deleted"},
+            headers=self.csrf(account),
+        )
+        self.assertEqual(sent.status_code, 200, sent.text)
+        with self.client.app.state.session_factory() as db:
+            user = db.scalar(select(User).where(User.username == "erase_user"))
+            user_id = user.id
+            self.assertEqual(len(db.scalars(select(Message)).all()), 2)
+
+        rejected = self.client.request(
+            "DELETE",
+            "/api/me",
+            json={"password": "incorrect-password", "confirm_username": "erase_user"},
+            headers=self.csrf(account),
+        )
+        self.assertEqual(rejected.status_code, 403)
+        with self.client.app.state.session_factory() as db:
+            self.assertIsNotNone(db.get(User, user_id))
+            self.assertEqual(len(db.scalars(select(Message)).all()), 2)
+
+        deleted = self.client.request(
+            "DELETE",
+            "/api/me",
+            json={"password": "correct-horse-123", "confirm_username": "erase_user"},
+            headers=self.csrf(account),
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.json(), {"ok": True})
+        self.assertIsNone(self.client.cookies.get("mt_session"))
+        self.assertIsNone(self.client.get("/api/session").json()["user"])
+        with self.client.app.state.session_factory() as db:
+            self.assertIsNone(db.get(User, user_id))
+            self.assertEqual(db.scalars(select(Message)).all(), [])
+            self.assertEqual(
+                db.scalars(
+                    select(LoginSession).where(LoginSession.user_id == user_id)
+                ).all(),
+                [],
+            )
+            self.assertIsNotNone(
+                db.scalar(select(User).where(User.username == "erase_peer"))
+            )
 
     def test_block_hides_unread_without_marking_read_and_prevents_later_messages(self):
         self.register("block_sender")

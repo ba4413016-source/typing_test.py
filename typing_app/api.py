@@ -60,6 +60,11 @@ class Credentials(Input):
     display_name: str | None = Field(default=None, min_length=1, max_length=40)
 
 
+class AccountDeletionInput(Input):
+    password: str = Field(min_length=1, max_length=128)
+    confirm_username: str = Field(min_length=1, max_length=24)
+
+
 class ProfileInput(Input):
     display_name: str = Field(min_length=1, max_length=40)
     instagram: str = Field(default="", max_length=100)
@@ -124,6 +129,7 @@ def fail(status: int, code: str, en: str, ar: str | None = None):
         "auth_required": "سجّل دخولك أولًا.",
         "csrf": "تعذر التحقق من الجلسة. حدّث الصفحة وحاول مجددًا.",
         "invalid_credentials": "اسم المستخدم أو كلمة المرور غير صحيحة.",
+        "account_deletion_failed": "تعذر تأكيد حذف الحساب. تحقق من كلمة المرور واسم المستخدم.",
         "username_taken": "اسم المستخدم مستخدم بالفعل؛ اختر اسمًا آخر.",
         "reserved_username": "اسم المستخدم محجوز لإدارة المنصة.",
         "invalid_input": "تحقق من اليوزر وكلمة المرور: 3–24 حرفًا إنجليزيًا أو رقمًا أو نقطة أو شرطة سفلية، وكلمة المرور 10 أحرف على الأقل.",
@@ -695,6 +701,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def me(request: Request, db: Session = Depends(db_session)):
         user, _ = authenticated(request, db)
         return {"user": profile(db, user)}
+
+    @app.delete("/api/me")
+    def delete_account(
+        payload: AccountDeletionInput,
+        request: Request,
+        response: Response,
+        db: Session = Depends(db_session),
+    ):
+        user, sess = authenticated(request, db)
+        mutation_guard(request, user, sess)
+        if (
+            payload.confirm_username.strip().lower() != user.username
+            or not password_matches(user.password_hash, payload.password)
+        ):
+            fail(
+                403,
+                "account_deletion_failed",
+                "Account deletion could not be confirmed.",
+            )
+        db.delete(user)
+        db.commit()
+        response.delete_cookie(
+            "mt_session",
+            path="/",
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite="lax",
+        )
+        return {"ok": True}
 
     @app.patch("/api/me/profile")
     def patch_profile(

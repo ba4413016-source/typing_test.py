@@ -721,6 +721,12 @@ input[type="file"]::file-selector-button {
   font-size: 0.88rem;
   font-weight: 700;
 }
+.form-success {
+  margin: 0;
+  color: var(--success);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
 .inline-form {
   display: flex;
   align-items: end;

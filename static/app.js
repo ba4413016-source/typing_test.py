@@ -389,6 +389,8 @@ $("authForm").addEventListener("submit", async (e) => {
   if (state.busy) return;
   state.busy = true;
   $("authError").hidden = true;
+  $("authError").classList.remove("form-success");
+  $("authError").classList.add("form-error");
   $("authSubmit").disabled = true;
   try {
     const body = {
@@ -1206,6 +1208,10 @@ function renderSettings() {
   const u = state.user;
   const host = $("page-settings");
   host.innerHTML = `<header class="page-header"><div><p class="eyebrow">${tr("حسابك", "Your account")}</p><h1>${tr("الإعدادات", "Settings")}</h1><p class="muted">${tr("عدّل ملفك الشخصي، رفيق التدريب، وتفضيلات العرض.", "Update your profile, training companion and preferences.")}</p></div></header><div class="settings-grid"><section class="settings-card"><h2>${tr("الملف الشخصي", "Profile")}</h2><div class="upload-row">${avatar(u.avatar_url, u.display_name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="profileAvatar" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="profile"><label>${tr("الاسم الظاهر", "Display name")}<input name="display_name" maxlength="40" value="${esc(u.display_name || "")}" required></label><label>${tr("اسم المستخدم (ثابت)", "Username (immutable)")}<input value="@${esc(u.username)}" disabled dir="ltr"></label><label class="social-field"><span>Instagram</span><input name="instagram" maxlength="100" value="${esc(u.instagram || "")}" placeholder="username"></label><label class="social-field"><span>Snapchat</span><input name="snapchat" maxlength="100" value="${esc(u.snapchat || "")}" placeholder="username"></label><label class="social-field"><span>X / Twitter</span><input name="twitter" maxlength="100" value="${esc(u.twitter || "")}" placeholder="username"></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ الملف", "Save profile")}</button></form></section><section class="settings-card"><h2>${tr("رفيق التدريب", "Training companion")}</h2><div class="upload-row">${avatar(u.bot?.avatar_url, u.bot?.name)}<label class="upload-control">${tr("تغيير الصورة", "Change photo")}<input type="file" id="botAvatarUpload" accept="image/jpeg,image/png,image/webp"></label></div><form class="stack-form" data-form="bot"><label>${tr("اسم البوت", "Companion name")}<input name="name" maxlength="40" value="${esc(u.bot?.name || "")}" required></label><p class="form-error" data-error hidden></p><button class="primary-button" type="submit">${tr("حفظ التخصيص", "Save companion")}</button></form><button class="secondary-button" type="button" data-action="suggestion-form">${tr("اقترح لعبة", "Suggest a game")}</button></section><section class="settings-card"><h2>${tr("المظهر واللغة", "Appearance & language")}</h2><label>${tr("اللغة", "Language")}<select id="prefLanguage"><option value="ar" ${state.lang === "ar" ? "selected" : ""}>العربية</option><option value="en" ${state.lang === "en" ? "selected" : ""}>English</option></select></label><label>${tr("المظهر", "Theme")}<select id="prefTheme"><option value="dark" ${state.theme === "dark" ? "selected" : ""}>${tr("داكن", "Dark")}</option><option value="light" ${state.theme === "light" ? "selected" : ""}>${tr("فاتح", "Light")}</option></select></label><p class="field-hint">${tr("تُحفظ تفضيلات اللغة والمظهر على هذا الجهاز فقط.", "Language and theme preferences are stored on this device only.")}</p></section><section class="settings-card"><div class="section-heading"><h2>${tr("اقتراحاتي", "My suggestions")}</h2><button class="quiet-button" type="button" data-action="load-mine-suggestions">${tr("عرض الحالة", "View status")}</button></div><div id="mineSuggestions"></div></section>${u.role === "admin" ? `<section class="settings-card"><div class="section-heading"><h2>${tr("مراجعة اقتراحات الألعاب", "Game suggestions review")}</h2><button class="quiet-button" data-action="admin-suggestions">${tr("تحميل قائمة المراجعة", "Load queue")}</button></div><div id="adminSuggestions"></div></section>` : ""}<section class="settings-card"><h2>${tr("تسجيل الخروج", "Sign out")}</h2><button class="danger-button" type="button" data-action="logout">${tr("تسجيل الخروج من هذا الجهاز", "Sign out on this device")}</button></section></div>`;
+  host.querySelector(".settings-grid").insertAdjacentHTML(
+    "beforeend",
+    `<section class="settings-card"><h2>${tr("حذف الحساب", "Delete account")}</h2><p class="field-hint">${tr("سيُحذف الحساب نهائيًا، بما في ذلك الرسائل التي أرسلتها أو استقبلتها، من قاعدة البيانات لدى جميع الأطراف. لا يمكن التراجع عن الحذف.", "Your account and all messages you sent or received will be permanently deleted from the database for everyone. This cannot be undone.")}</p><p class="field-hint">${tr("قد تبقى نسخ البيانات في النسخ الاحتياطية حتى انتهاء مدة احتفاظ المشغّل بها.", "Backup copies may remain until the operator's backup-retention period expires.")}</p><form class="stack-form" data-form="delete-account" autocomplete="off"><label>${tr("كلمة المرور الحالية", "Current password")}<input name="password" type="password" minlength="1" maxlength="128" autocomplete="current-password" required></label><label>${tr("اكتب اسم المستخدم لتأكيد الحذف", "Type your username to confirm")}<input name="confirm_username" maxlength="24" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${esc(u.username)}" required></label><p class="form-error" data-error hidden></p><button class="danger-button" type="submit">${tr("حذف الحساب نهائيًا", "Permanently delete account")}</button></form></section>`,
+  );
 }
 async function updateUser(data) {
   state.user = data.user || state.user;
@@ -1807,7 +1813,38 @@ $("page-settings").addEventListener("submit", async (e) => {
   if (err) err.hidden = true;
   const fd = new FormData(f);
   try {
-    if (f.dataset.form === "profile") {
+    if (f.dataset.form === "delete-account") {
+      await api("/api/me", {
+        method: "DELETE",
+        body: {
+          password: fd.get("password"),
+          confirm_username: fd.get("confirm_username"),
+        },
+      });
+      fd.delete("password");
+      state.user = null;
+      state.csrf = null;
+      state.threads = [];
+      state.pendingInvite = "";
+      state.unreadMessages = state.unreadNotifications = 0;
+      clearRuntime();
+      updateBadges();
+      history.replaceState(null, "", location.pathname);
+      $("page-settings").replaceChildren();
+      $("botLog").replaceChildren();
+      $("messageLog").replaceChildren();
+      $("threadList").replaceChildren();
+      $("appScreen").hidden = true;
+      $("authScreen").hidden = false;
+      $("authForm").reset();
+      $("authError").classList.remove("form-error");
+      $("authError").classList.add("form-success");
+      $("authError").textContent = tr(
+        "حُذف الحساب نهائيًا، بما في ذلك الرسائل المرتبطة به.",
+        "The account and its associated messages have been permanently deleted.",
+      );
+      $("authError").hidden = false;
+    } else if (f.dataset.form === "profile") {
       const d = await api("/api/me/profile", {
         method: "PATCH",
         body: {

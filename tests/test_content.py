@@ -46,6 +46,13 @@ class FrontendContractTests(unittest.TestCase):
         self.assertIn('id="authForm"', self.html)
         self.assertIn('src="/static/app.js"', self.html)
 
+    def test_account_deletion_and_message_policy_are_visible_in_settings(self):
+        script = (ROOT / "static/app.js").read_text()
+        self.assertIn('data-form="delete-account"', script)
+        self.assertIn('method: "DELETE"', script)
+        self.assertIn('confirm_username: fd.get("confirm_username")', script)
+        self.assertIn("الرسائل التي أرسلتها أو استقبلتها", script)
+
     def test_social_assets_are_local_valid_svg(self):
         for network in ("instagram", "snapchat", "x"):
             content = (ROOT / f"static/icons/{network}.svg").read_text()
